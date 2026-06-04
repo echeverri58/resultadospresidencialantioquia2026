@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elecciones Presidenciales - Antioquia</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+          
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <header class="app-header">
+                <div class="brand">
+                    <span class="icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="url(#title-gradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <defs>
+                                <linearGradient id="title-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#38bdf8" />
+                                    <stop offset="100%" stop-color="#c084fc" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M21 8v13H3V8"></path>
+                            <path d="M1 3h22v5H1z"></path>
+                            <path d="M10 12h4"></path>
+                        </svg>
+                    </span>
+                    <h1>Antioquia Elecciones<br><span class="highlight-year">Presidenciales 2026</span></h1>
+                </div>
+                <p class="subtitle">Visualizador de Resultados Presidenciales y comparativos con 2022</p>
+            </header>
+
+            <!-- Navigation Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-communes" onclick="switchTab('communes')">
+                    Comunas (Medellín)
+                </button>
+                <button class="tab-btn" id="tab-barrios" onclick="switchTab('barrios')">
+                    Barrios y Veredas
+                </button>
+                <button class="tab-btn" id="tab-hierarchy" onclick="switchTab('hierarchy')">
+                    Puestos y Mesas
+                </button>
+            </div>
+
+            <!-- Tab Content: Communes Map Info -->
+            <div id="content-communes" class="tab-content active">
+                <div class="info-card">
+                    <h3>Mapa de Calor por Comunas</h3>
+                    <p>Haz clic en cualquier comuna de Medellín en el mapa para examinar los resultados electorales detallados.</p>
+                </div>
+            </div>
+
+            <!-- Tab Content: Barrios Map Info -->
+            <div id="content-barrios" class="tab-content">
+                <div class="info-card">
+                    <h3>Mapa de Calor por Barrios y Veredas</h3>
+                    <p>Haz clic en cualquier barrio o vereda en el mapa para examinar los resultados electorales detallados.</p>
+                </div>
+            </div>
+
+            <!-- Tab Content: Hierarchy Filters -->
+            <div id="content-hierarchy" class="tab-content">
+                <div class="filter-group">
+                    <label for="select-muni">Municipio</label>
+                    <select id="select-muni" onchange="onMuniChange()">
+                        <option value="">Cargando municipios...</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="select-zone">Zona</label>
+                    <select id="select-zone" onchange="onZoneChange()" disabled>
+                        <option value="">Selecciona un municipio</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="select-post">Puesto de Votación</label>
+                    <select id="select-post" onchange="onPostChange()" disabled>
+                        <option value="">Selecciona una zona</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <label for="select-table">Mesa</label>
+                    <select id="select-table" onchange="onTableChange()" disabled>
+                        <option value="">Selecciona un puesto</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Dynamic Results Container -->
+            <div class="results-container">
+                <div class="results-header">
+                    <h2 id="results-title">Resultados Generales (Medellín)</h2>
+                    <span id="results-subtitle">Acumulado de todas las comunas y corregimientos</span>
+                </div>
+                
+                <div class="vote-summary-badge">
+                    <span class="badge-label">Votos Totales</span>
+                    <span class="badge-value" id="total-votes-count">0</span>
+                </div>
+
+                <div class="candidates-list" id="candidates-list">
+                    <!-- Dynamic Candidate Cards will go here -->
+                </div>
+
+                <!-- Tables List Summary (only shown when a post is selected) -->
+                <div class="tables-summary-section" id="tables-summary-section" style="display: none; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <h3 style="font-size: 12px; font-weight: 700; margin-bottom: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Mesas en este Puesto</h3>
+                    <div id="tables-list-container" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px;">
+                        <!-- Dynamic table rows will go here -->
+                    </div>
+                </div>
+
+                <!-- Interactive Chart Section -->
+                <div class="chart-section" id="chart-section" style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                    <div style="position: relative; width: 100%; height: 320px; background: rgba(0,0,0,0.25); border-radius: 12px; padding: 10px; border: 1px solid var(--border-color);">
+                        <canvas id="results-chart"></canvas>
+                    </div>
+                    <button style="margin-top: 16px; width: 100%; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 8px; background: #6366f1; border: none; color: #ffffff; font-weight: 800; font-size: 14px; border-radius: 12px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);" onmouseover="this.style.background='#4f46e5'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(99, 102, 241, 0.6)';" onmouseout="this.style.background='#6366f1'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(99, 102, 241, 0.4)';" onclick="downloadChart()">
+                        📥 Descargar Gráfica (PNG)
+                    </button>
+                </div>
+                
+                <!-- Credit Footer -->
+                <div style="margin-top: 32px; text-align: center; color: var(--text-secondary); font-size: 12px; padding-bottom: 12px;">
+                    Creado Por <strong>John Alexander Echeverry O</strong><br>Politólogo y analista de datos.<br>
+                    <a href="mailto:echeverri58@gmail.com" style="color: var(--accent); text-decoration: none; margin-top: 4px; display: inline-block;">echeverri58@gmail.com</a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Map Area -->
+        <main class="map-wrapper">
+            <div id="map"></div>
+            
+            <!-- Floating Map Legend -->
+            <div class="map-legend" id="map-legend">
+                <h4>Candidato Ganador</h4>
+                <div class="legend-items" id="legend-items">
+                    <!-- Dynamic legend items -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+            
+    <script src="index.js"></script>
+</body>
+</html>
