@@ -66,6 +66,7 @@ async function loadData() {
         
         // Render general results
         renderMedellinGeneralResults();
+        renderComparativeCard();
         renderLegend();
         renderCommunes();
         renderBarrios();
@@ -139,6 +140,7 @@ function renderMedellinGeneralResults() {
         .sort((a, b) => b.votes - a.votes);
         
     renderResultsList(sorted, totalVotes);
+    renderComparativeCard();
 }
 
 // Helper to truncate candidate names for chart labels
@@ -663,6 +665,107 @@ function getPostElectoralSummary(postInfo) {
     };
 }
 
+// Render Comparative Card 2022/2026
+function renderComparativeCard(muniName = null, zoneName = null, postId = null) {
+    const card = document.getElementById('comparative-card');
+    if (!card) return;
+    
+    // Determine 2022 stats
+    let stats2022 = null;
+    let stats2026 = { fico: 0, petro: 0, total: 0 };
+    let subtitle = '';
+    
+    if (muniName && zoneName && postId) {
+        // Post level
+        subtitle = `Puesto: ${electoralData.hierarchy[muniName][zoneName][postId].name}`;
+        if (electoralData.comparison_2022_hierarchy && electoralData.comparison_2022_hierarchy[muniName] && electoralData.comparison_2022_hierarchy[muniName][zoneName] && electoralData.comparison_2022_hierarchy[muniName][zoneName][postId]) {
+            stats2022 = electoralData.comparison_2022_hierarchy[muniName][zoneName][postId];
+        }
+        
+        let candIdxEspriella = electoralData.candidates.indexOf("ABELARDO DE LA ESPRIELLA");
+        let candIdxCepeda = electoralData.candidates.indexOf("IVÁN CEPEDA CASTRO");
+        let postInfo = electoralData.hierarchy[muniName][zoneName][postId];
+        
+        Object.values(postInfo.tables).forEach(tableVotes => {
+            stats2026.fico += tableVotes[candIdxEspriella] || 0;
+            stats2026.petro += tableVotes[candIdxCepeda] || 0;
+            stats2026.total += tableVotes.reduce((a, b) => a + b, 0);
+        });
+        
+    } else if (muniName && muniName !== "TODOS") {
+        // Municipality level
+        subtitle = `Municipio: ${muniName}`;
+        if (electoralData.comparison_2022_muni && electoralData.comparison_2022_muni[muniName]) {
+            stats2022 = electoralData.comparison_2022_muni[muniName];
+        }
+        
+        let candIdxEspriella = electoralData.candidates.indexOf("ABELARDO DE LA ESPRIELLA");
+        let candIdxCepeda = electoralData.candidates.indexOf("IVÁN CEPEDA CASTRO");
+        let muniData = electoralData.hierarchy[muniName];
+        
+        Object.values(muniData).forEach(zonePosts => {
+            Object.values(zonePosts).forEach(postInfo => {
+                Object.values(postInfo.tables).forEach(tableVotes => {
+                    stats2026.fico += tableVotes[candIdxEspriella] || 0;
+                    stats2026.petro += tableVotes[candIdxCepeda] || 0;
+                    stats2026.total += tableVotes.reduce((a, b) => a + b, 0);
+                });
+            });
+        });
+    } else {
+        // Global Medellin (Default)
+        subtitle = "Medellín (Global)";
+        const globalMuni = "MEDELLIN";
+        if (electoralData.comparison_2022_muni && electoralData.comparison_2022_muni[globalMuni]) {
+            stats2022 = electoralData.comparison_2022_muni[globalMuni];
+        }
+        
+        Object.values(electoralData.communes).forEach(commData => {
+            commData.results.forEach(res => {
+                if (res.candidate === "ABELARDO DE LA ESPRIELLA") stats2026.fico += res.votes;
+                if (res.candidate === "IVÁN CEPEDA CASTRO") stats2026.petro += res.votes;
+                stats2026.total += res.votes;
+            });
+        });
+    }
+    
+    if (!stats2022 || stats2022.TOTAL === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    card.style.display = 'block';
+    const headerTitle = card.querySelector('.results-header span');
+    if (headerTitle) {
+        headerTitle.innerText = subtitle;
+    }
+    
+    let pctFico2022 = stats2022.TOTAL > 0 ? (stats2022.FICO / stats2022.TOTAL * 100) : 0;
+    let pctPetro2022 = stats2022.TOTAL > 0 ? (stats2022.PETRO / stats2022.TOTAL * 100) : 0;
+    
+    let pctEspriella2026 = stats2026.total > 0 ? (stats2026.fico / stats2026.total * 100) : 0;
+    let pctCepeda2026 = stats2026.total > 0 ? (stats2026.petro / stats2026.total * 100) : 0;
+    
+    document.getElementById('comp-2022-der').innerText = `Fico: ${pctFico2022.toFixed(1)}%`;
+    document.getElementById('comp-2022-izq').innerText = `Petro: ${pctPetro2022.toFixed(1)}%`;
+    
+    document.getElementById('comp-2026-der').innerText = `De La Espriella: ${pctEspriella2026.toFixed(1)}%`;
+    document.getElementById('comp-2026-izq').innerText = `Cepeda: ${pctCepeda2026.toFixed(1)}%`;
+    
+    const margin2022 = pctFico2022 - pctPetro2022;
+    const margin2026 = pctEspriella2026 - pctCepeda2026;
+    const shift = margin2026 - margin2022;
+    
+    let shiftText = '';
+    if (shift > 0) {
+        shiftText = `El margen de la derecha creció <strong>+${shift.toFixed(1)}%</strong> frente a 2022.`;
+    } else {
+        shiftText = `El margen de la izquierda creció <strong>+${Math.abs(shift).toFixed(1)}%</strong> frente a 2022.`;
+    }
+    
+    document.getElementById('comp-shift-summary').innerHTML = shiftText;
+}
+
 // Render post circle markers (heatmap) on the map for selected scope
 function renderPostMarkers(muni = null, filterZone = null) {
     postsLayer.clearLayers();
@@ -1127,6 +1230,9 @@ function aggregateAndRenderResults({ muni, zone, postId, table }) {
     document.getElementById('results-title').innerText = title;
     document.getElementById('results-subtitle').innerText = subtitle;
     renderResultsList(sorted, totalVotes, chartType, postInfo);
+    
+    // Dynamically update comparative card
+    renderComparativeCard(muni, zone, postId);
 }
 
 // Initial triggers

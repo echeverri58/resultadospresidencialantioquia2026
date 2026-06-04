@@ -299,6 +299,64 @@ output_data = {
     "hierarchy": hierarchy
 }
 
+# 4. Load 2022 data for comparison (Dynamic)
+muni_2022 = {}
+hierarchy_2022 = {}
+
+try:
+    with open('MMV_ANTIOQUIA_2022_1v.csv', mode='r', encoding='latin1') as f:
+        reader = csv.DictReader(f, delimiter=',')
+        for row in reader:
+            muni = row.get('MUNNOMBRE', '').strip().upper()
+            muni_norm = normalize_text(muni)
+            zone_num = row.get('ZONA', '0').strip()
+            zone = f"Zona {int(zone_num)}" if zone_num.isdigit() else "Zona 0"
+            post_id = row.get('PUESTO', '0').strip().zfill(2)
+            
+            cand = row.get('CANNOMBRE', '').strip().upper()
+            replacements = {'Á':'A', 'É':'E', 'Í':'I', 'Ó':'O', 'Ú':'U', 'Ñ':'N', 'Ü':'U'}
+            for k, v in replacements.items():
+                cand = cand.replace(k, v)
+                
+            votes = int(row.get('VOTOS', 0))
+            
+            # Filter to keep JSON small: only Fico, Petro, and Total
+            # We will use "FICO", "PETRO", and "TOTAL" as keys
+            key = None
+            if 'FEDERICO' in cand:
+                key = 'FICO'
+            elif 'GUSTAVO PETRO' in cand:
+                key = 'PETRO'
+            else:
+                key = 'OTHER'
+                
+            # Muni totals
+            if muni not in muni_2022:
+                muni_2022[muni] = {'FICO': 0, 'PETRO': 0, 'TOTAL': 0}
+            if key in ['FICO', 'PETRO']:
+                muni_2022[muni][key] += votes
+            muni_2022[muni]['TOTAL'] += votes
+            
+            # Hierarchy totals
+            if muni not in hierarchy_2022:
+                hierarchy_2022[muni] = {}
+            if zone not in hierarchy_2022[muni]:
+                hierarchy_2022[muni][zone] = {}
+            if post_id not in hierarchy_2022[muni][zone]:
+                hierarchy_2022[muni][zone][post_id] = {'FICO': 0, 'PETRO': 0, 'TOTAL': 0}
+            
+            if key in ['FICO', 'PETRO']:
+                hierarchy_2022[muni][zone][post_id][key] += votes
+            hierarchy_2022[muni][zone][post_id]['TOTAL'] += votes
+
+    # Store aggregated 2022 data
+    output_data["comparison_2022_muni"] = muni_2022
+    output_data["comparison_2022_hierarchy"] = hierarchy_2022
+    
+except Exception as e:
+    print(f"Could not load 2022 data for comparison: {e}")
+
+
 # 4. Save to electoral_data.json
 print("Saving output to electoral_data.json...")
 with open('electoral_data.json', 'w', encoding='utf-8') as f:
