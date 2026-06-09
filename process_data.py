@@ -133,6 +133,12 @@ def load_coords_from_file(filepath):
             muni = row.get('MUNICIPIO', '').strip()
             puesto = row.get('PUESTO', '').strip()
             direccion = row.get('DIRECCIÓN', row.get('DIRECCIN', '')).strip()
+            departamento = row.get('DEPARTAMENTO', '').strip().upper()
+            
+            # Skip if there's a department specified and it's not Antioquia
+            if departamento and departamento != 'ANTIOQUIA':
+                continue
+                
             lat_raw = row.get('LATITUD', '')
             lon_raw = row.get('LONGITUD', '')
             

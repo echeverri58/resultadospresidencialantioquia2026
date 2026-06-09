@@ -753,16 +753,69 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
     let pctOtros2022 = stats2022.TOTAL > 0 ? (otros2022 / stats2022.TOTAL * 100) : 0;
     let pctOtros2026 = stats2026.total > 0 ? (otros2026 / stats2026.total * 100) : 0;
     
-    document.getElementById('comp-2022-total').innerText = `Total Votantes: ${formatNumber(stats2022.TOTAL)}`;
-    document.getElementById('comp-2026-total').innerText = `Total Votantes: ${formatNumber(stats2026.total)}`;
+    document.getElementById('comp-2022-total').innerText = `Participación: ${formatNumber(stats2022.TOTAL)}`;
+    document.getElementById('comp-2026-total').innerText = `Participación: ${formatNumber(stats2026.total)}`;
 
-    document.getElementById('comp-2022-der').innerHTML = `Fico + Rodolfo: ${pctFico2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.FICO)} de ${formatNumber(stats2022.TOTAL)} votos)</span>`;
-    document.getElementById('comp-2022-izq').innerHTML = `Petro: ${pctPetro2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.PETRO)} de ${formatNumber(stats2022.TOTAL)} votos)</span>`;
-    document.getElementById('comp-2022-otros').innerHTML = `Otros/Blanco: ${pctOtros2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(otros2022)} de ${formatNumber(stats2022.TOTAL)} votos)</span>`;
+    const diffDer = pctEspriella2026 - pctFico2022;
+    const diffIzq = pctCepeda2026 - pctPetro2022;
+    const diffOtros = pctOtros2026 - pctOtros2022;
+
+    function getDeltaBadge(delta) {
+        if (delta > 0) return `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">↑ ${Math.abs(delta).toFixed(1)}%</span>`;
+        if (delta < 0) return `<span style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">↓ ${Math.abs(delta).toFixed(1)}%</span>`;
+        return `<span style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">= 0.0%</span>`;
+    }
+
+    // 2022 Styling
+    document.getElementById('comp-2022-der').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Fico + Rodolfo</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#0284c7;">${pctFico2022.toFixed(1)}%</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2022.FICO)} de ${formatNumber(stats2022.TOTAL)})</div>
+    `;
     
-    document.getElementById('comp-2026-der').innerHTML = `De La Espriella + Paloma: ${pctEspriella2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.fico)} de ${formatNumber(stats2026.total)} votos)</span>`;
-    document.getElementById('comp-2026-izq').innerHTML = `Cepeda: ${pctCepeda2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.petro)} de ${formatNumber(stats2026.total)} votos)</span>`;
-    document.getElementById('comp-2026-otros').innerHTML = `Otros/Blanco: ${pctOtros2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(otros2026)} de ${formatNumber(stats2026.total)} votos)</span>`;
+    document.getElementById('comp-2022-izq').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Petro</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#ea580c;">${pctPetro2022.toFixed(1)}%</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2022.PETRO)} de ${formatNumber(stats2022.TOTAL)})</div>
+    `;
+    
+    document.getElementById('comp-2022-otros').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-top:8px;">Otros/Blanco</div>
+        <div style="font-size:14px; font-weight:700; color:#64748b;">${pctOtros2022.toFixed(1)}%</div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(otros2022)} votos)</div>
+    `;
+
+    // 2026 Styling with Badges
+    document.getElementById('comp-2026-der').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">De La Espriella + Paloma</div>
+        <div style="display:flex; justify-content:center; align-items:center; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#0284c7;">${pctEspriella2026.toFixed(1)}%</span>
+            ${getDeltaBadge(diffDer)}
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2026.fico)} de ${formatNumber(stats2026.total)})</div>
+    `;
+    
+    document.getElementById('comp-2026-izq').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Cepeda</div>
+        <div style="display:flex; justify-content:center; align-items:center; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#ea580c;">${pctCepeda2026.toFixed(1)}%</span>
+            ${getDeltaBadge(diffIzq)}
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2026.petro)} de ${formatNumber(stats2026.total)})</div>
+    `;
+    
+    document.getElementById('comp-2026-otros').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600; margin-top:8px;">Otros/Blanco</div>
+        <div style="display:flex; justify-content:center; align-items:center; margin:2px 0;">
+            <span style="font-size:14px; font-weight:700; color:#64748b;">${pctOtros2026.toFixed(1)}%</span>
+            ${getDeltaBadge(diffOtros)}
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(otros2026)} votos)</div>
+    `;
     
     const margin2022 = pctFico2022 - pctPetro2022;
     const margin2026 = pctEspriella2026 - pctCepeda2026;
@@ -770,12 +823,23 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
     
     let shiftText = '';
     if (shift > 0) {
-        shiftText = `El margen de la derecha creció <strong>+${shift.toFixed(1)}%</strong> frente a 2022.`;
+        shiftText = `El margen de la derecha creció <span style="color:#0284c7;">+${shift.toFixed(1)}%</span> frente a 2022.`;
     } else {
-        shiftText = `El margen de la izquierda creció <strong>+${Math.abs(shift).toFixed(1)}%</strong> frente a 2022.`;
+        shiftText = `El margen de la izquierda creció <span style="color:#ea580c;">+${Math.abs(shift).toFixed(1)}%</span> frente a 2022.`;
     }
-    
     document.getElementById('comp-shift-summary').innerHTML = shiftText;
+
+    const diffVotosDer = stats2026.fico - stats2022.FICO;
+    const diffVotosIzq = stats2026.petro - stats2022.PETRO;
+
+    const derAction = diffDer >= 0 ? 'subió' : 'cayó';
+    const derVotosText = diffVotosDer >= 0 ? `sumando ${formatNumber(diffVotosDer)} votos` : `perdiendo ${formatNumber(Math.abs(diffVotosDer))} votos`;
+    const izqAction = diffIzq >= 0 ? 'subió' : 'cayó';
+    const izqVotosText = diffVotosIzq >= 0 ? `sumando ${formatNumber(diffVotosIzq)} votos` : `perdiendo ${formatNumber(Math.abs(diffVotosIzq))} votos`;
+
+    let explanation = `Esto se debe a un doble efecto: la derecha <strong>${derAction} ${Math.abs(diffDer).toFixed(1)} puntos</strong> (${derVotosText}), mientras que la izquierda <strong>${izqAction} ${Math.abs(diffIzq).toFixed(1)} puntos</strong> (${izqVotosText}).`;
+    
+    document.getElementById('comp-shift-explanation').innerHTML = explanation;
 }
 
 // Render post circle markers (heatmap) on the map for selected scope
@@ -1250,3 +1314,34 @@ function aggregateAndRenderResults({ muni, zone, postId, table }) {
 // Initial triggers
 initMap();
 loadData();
+
+// Download Card as PNG Image
+window.downloadCard = function() {
+    const card = document.getElementById('comparative-card');
+    const btnContainer = document.getElementById('download-btn-container');
+    
+    // Hide the button container so it doesn't appear in the screenshot
+    btnContainer.style.display = 'none';
+    
+    // Slight delay to ensure UI reflows after hiding button
+    setTimeout(() => {
+        html2canvas(card, {
+            scale: 2, // Higher resolution for better quality
+            backgroundColor: '#ffffff',
+            useCORS: true
+        }).then(canvas => {
+            // Restore the button container
+            btnContainer.style.display = 'block';
+            
+            // Create a download link and trigger it
+            const link = document.createElement('a');
+            link.download = 'analisis_electoral_john_charcos.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            console.error("Error generating image:", err);
+            btnContainer.style.display = 'block'; // Restore even on error
+            alert("Hubo un error al generar la imagen.");
+        });
+    }, 50);
+};
