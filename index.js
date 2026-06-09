@@ -748,11 +748,21 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
     let pctEspriella2026 = stats2026.total > 0 ? (stats2026.fico / stats2026.total * 100) : 0;
     let pctCepeda2026 = stats2026.total > 0 ? (stats2026.petro / stats2026.total * 100) : 0;
     
+    let otros2022 = stats2022.TOTAL - stats2022.FICO - stats2022.PETRO;
+    let otros2026 = stats2026.total - stats2026.fico - stats2026.petro;
+    let pctOtros2022 = stats2022.TOTAL > 0 ? (otros2022 / stats2022.TOTAL * 100) : 0;
+    let pctOtros2026 = stats2026.total > 0 ? (otros2026 / stats2026.total * 100) : 0;
+    
+    document.getElementById('comp-2022-total').innerText = `Participación: ${formatNumber(stats2022.TOTAL)} votos`;
+    document.getElementById('comp-2026-total').innerText = `Participación: ${formatNumber(stats2026.total)} votos`;
+
     document.getElementById('comp-2022-der').innerHTML = `Fico + Rodolfo: ${pctFico2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.FICO)} votos)</span>`;
     document.getElementById('comp-2022-izq').innerHTML = `Petro: ${pctPetro2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.PETRO)} votos)</span>`;
+    document.getElementById('comp-2022-otros').innerHTML = `Otros/Blanco: ${pctOtros2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(otros2022)} votos)</span>`;
     
     document.getElementById('comp-2026-der').innerHTML = `De La Espriella + Paloma: ${pctEspriella2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.fico)} votos)</span>`;
     document.getElementById('comp-2026-izq').innerHTML = `Cepeda: ${pctCepeda2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.petro)} votos)</span>`;
+    document.getElementById('comp-2026-otros').innerHTML = `Otros/Blanco: ${pctOtros2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(otros2026)} votos)</span>`;
     
     const margin2022 = pctFico2022 - pctPetro2022;
     const margin2026 = pctEspriella2026 - pctCepeda2026;
