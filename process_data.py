@@ -323,7 +323,7 @@ try:
             # Filter to keep JSON small: only Fico, Petro, and Total
             # We will use "FICO", "PETRO", and "TOTAL" as keys
             key = None
-            if 'FEDERICO' in cand:
+            if 'FEDERICO' in cand or 'RODOLFO HERN' in cand:
                 key = 'FICO'
             elif 'GUSTAVO PETRO' in cand:
                 key = 'PETRO'

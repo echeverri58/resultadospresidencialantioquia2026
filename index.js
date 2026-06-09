@@ -683,11 +683,12 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
         }
         
         let candIdxEspriella = electoralData.candidates.indexOf("ABELARDO DE LA ESPRIELLA");
+        let candIdxPaloma = electoralData.candidates.indexOf("PALOMA VALENCIA LASERNA");
         let candIdxCepeda = electoralData.candidates.indexOf("IVÁN CEPEDA CASTRO");
         let postInfo = electoralData.hierarchy[muniName][zoneName][postId];
         
         Object.values(postInfo.tables).forEach(tableVotes => {
-            stats2026.fico += tableVotes[candIdxEspriella] || 0;
+            stats2026.fico += (tableVotes[candIdxEspriella] || 0) + (tableVotes[candIdxPaloma] || 0);
             stats2026.petro += tableVotes[candIdxCepeda] || 0;
             stats2026.total += tableVotes.reduce((a, b) => a + b, 0);
         });
@@ -700,13 +701,14 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
         }
         
         let candIdxEspriella = electoralData.candidates.indexOf("ABELARDO DE LA ESPRIELLA");
+        let candIdxPaloma = electoralData.candidates.indexOf("PALOMA VALENCIA LASERNA");
         let candIdxCepeda = electoralData.candidates.indexOf("IVÁN CEPEDA CASTRO");
         let muniData = electoralData.hierarchy[muniName];
         
         Object.values(muniData).forEach(zonePosts => {
             Object.values(zonePosts).forEach(postInfo => {
                 Object.values(postInfo.tables).forEach(tableVotes => {
-                    stats2026.fico += tableVotes[candIdxEspriella] || 0;
+                    stats2026.fico += (tableVotes[candIdxEspriella] || 0) + (tableVotes[candIdxPaloma] || 0);
                     stats2026.petro += tableVotes[candIdxCepeda] || 0;
                     stats2026.total += tableVotes.reduce((a, b) => a + b, 0);
                 });
@@ -722,7 +724,7 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
         
         Object.values(electoralData.communes).forEach(commData => {
             commData.results.forEach(res => {
-                if (res.candidate === "ABELARDO DE LA ESPRIELLA") stats2026.fico += res.votes;
+                if (res.candidate === "ABELARDO DE LA ESPRIELLA" || res.candidate === "PALOMA VALENCIA LASERNA") stats2026.fico += res.votes;
                 if (res.candidate === "IVÁN CEPEDA CASTRO") stats2026.petro += res.votes;
                 stats2026.total += res.votes;
             });
@@ -746,11 +748,11 @@ function renderComparativeCard(muniName = null, zoneName = null, postId = null) 
     let pctEspriella2026 = stats2026.total > 0 ? (stats2026.fico / stats2026.total * 100) : 0;
     let pctCepeda2026 = stats2026.total > 0 ? (stats2026.petro / stats2026.total * 100) : 0;
     
-    document.getElementById('comp-2022-der').innerText = `Fico: ${pctFico2022.toFixed(1)}%`;
-    document.getElementById('comp-2022-izq').innerText = `Petro: ${pctPetro2022.toFixed(1)}%`;
+    document.getElementById('comp-2022-der').innerHTML = `Fico + Rodolfo: ${pctFico2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.FICO)} votos)</span>`;
+    document.getElementById('comp-2022-izq').innerHTML = `Petro: ${pctPetro2022.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2022.PETRO)} votos)</span>`;
     
-    document.getElementById('comp-2026-der').innerText = `De La Espriella: ${pctEspriella2026.toFixed(1)}%`;
-    document.getElementById('comp-2026-izq').innerText = `Cepeda: ${pctCepeda2026.toFixed(1)}%`;
+    document.getElementById('comp-2026-der').innerHTML = `De La Espriella + Paloma: ${pctEspriella2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.fico)} votos)</span>`;
+    document.getElementById('comp-2026-izq').innerHTML = `Cepeda: ${pctCepeda2026.toFixed(1)}% <br><span style="font-size: 11px; font-weight: normal; color: var(--text-secondary);">(${formatNumber(stats2026.petro)} votos)</span>`;
     
     const margin2022 = pctFico2022 - pctPetro2022;
     const margin2026 = pctEspriella2026 - pctCepeda2026;
