@@ -16,6 +16,72 @@ def normalize_text(text):
     text = re.sub(r'[^A-Z0-9]', '', text)
     return text
 
+def get_words(name):
+    n = name.upper()
+    # Replace synonyms
+    n = re.sub(r'\b(P\.?\s*BIBL\.?|PARQUE\s+BIBLIOTECA|PAR\.?\s*BIBLIOTECA)\b', 'BIBLIOTECA', n)
+    n = re.sub(r'\b(SEC\.?\s*ESC\.?|SECCION\s+ESCUELA|ESCUELA)\b', 'ESCUELA', n)
+    n = re.sub(r'\b(I\.?E\.?|INSTITUCION\s+EDUCATIVA)\b', 'IE', n)
+    n = re.sub(r'\b(COL\.?|COLEGIO)\b', 'COLEGIO', n)
+    n = re.sub(r'\b(SEC\.?\s*COL\.?|SECCION\s+COLEGIO)\b', 'COLEGIO', n)
+    n = re.sub(r'\b(INST\.?|INSTITUTO)\b', 'INSTITUTO', n)
+    n = re.sub(r'\b(SEC\.?\s*ESC\.?\s*AUX\.?)\b', 'ESCUELA', n)
+    n = re.sub(r'\b(CORP\.?|CORPORACION)\b', 'CORPORACION', n)
+    n = re.sub(r'\b(UNIV\.?|UNIVERSIDAD)\b', 'UNIVERSIDAD', n)
+    # Remove accents
+    replacements = {'Á':'A', 'É':'E', 'Í':'I', 'Ó':'O', 'Ú':'U', 'Ñ':'N', 'Ü':'U'}
+    for k, v in replacements.items():
+        n = n.replace(k, v)
+    # Extract words of length >= 3
+    words = re.findall(r'[A-Z0-9]{3,}', n)
+    return set(words)
+
+manual_overrides = {
+    # Medellín posts
+    "I.E. SANTA JUANA DE LESTONNAC": (6.30304, -75.5755),
+    "I.E. JORGE ELIECER GAITAN": (6.28991, -75.5852),
+    "I.E. VILLA DE LA CANDELARIA": (6.285044, -75.593645),
+    "INSTITUTO FERRINI - SEDE ROBLEDO": (6.27792, -75.5923),
+    "I.T.M. (CAMPUS FRATERNIDAD)": (6.2453704, -75.5510349),
+    "I.E. MANUEL JOSÉ CAYZEDO": (6.24144, -75.55199),
+    "I.E. MANUEL JOSE CAYZEDO": (6.24144, -75.55199),
+    "AUDITORIO CC SAN DIEGO TORRE NTE PISO 11": (6.2341186, -75.5686026),
+    "PLAZA MINORISTA JOSE MARIA VILLA": (6.2576437, -75.5734711),
+    "I.E. MARCO FIDEL SUAREZ": (6.2520, -75.5860),
+    "COL. CALASANZ (FEM) CAMPESTRE ESCOLAPIAS": (6.2665, -75.5903),
+    "COLEGIO BETHLEMITAS": (6.2408545, -75.5955852),
+    "CORP. UNIVERSITARIA ADVENTISTA - UNAC": (6.24107, -75.6094),
+    "COLEGIO LATINO": (6.2430826, -75.6113314),
+    "C4TA CIUDADELA": (6.2526, -75.6124),
+    "SEC. ESC. BETANIA": (6.24622, -75.56227),
+    "I.E. CARLOS VIECO ORTIZ": (6.25479, -75.6199),
+    "SEC. ESC. AMOR AL NIÑO": (6.25304, -75.6245),
+    "SEC. ESC. AMOR AL NIO": (6.25304, -75.6245),
+    "I.E FUNDADORES": (6.2575, -75.6145),
+    "SEC. ESC. VEINTE DE JULIO": (6.25229, -75.62084),
+    "PARQUE COMERCIAL EL TESORO": (6.1974, -75.5586),
+    "I.E. LA SALLE DE CAMPOAMOR": (6.21267, -75.5876),
+    "SEC. ESC. SANTISIMA TRINIDAD": (6.2185, -75.5802),
+    "INSTITUTO SAN CARLOS": (6.22315, -75.6001),
+    "I.E. CAPILLA DEL ROSARIO": (6.20518, -75.6021),
+    "C.E. MARIA PAULINA TABORDA": (6.2415, -75.6425),
+    "COLEGIO PACHA MAMA": (6.2307, -75.6288),
+    "I.E. MANUEL J. BETANCUR": (6.183666773, -75.65749518),
+    "C.E. JUAN ANDRES PATIÑO": (6.2319789, -75.4799755),
+    "C.E. JUAN ANDRES PATIO": (6.2319789, -75.4799755),
+    "C.E. MEDIA LUNA": (6.2305, -75.5135),
+    "I.E. PBRO ANTONIO JOSE BERNAL LONDOÑO SJ": (6.301311, -75.559322),
+    "I.E. PBRO ANTONIO JOSE BERNAL LONDONO SJ": (6.301311, -75.559322),
+    "I.E. MONSEÑOR FRANCISCO CRISTOBAL TORO": (6.28255, -75.560399),
+    "I.E. MONSENOR FRANCISCO CRISTOBAL TORO": (6.28255, -75.560399),
+    "I.E. JOSE EUSEBIO CARO": (6.285550000000001, -75.558786929),
+    "I.E. NUEVO HORIZONTE - PAULO VI": (6.2947, -75.5460),
+    "SEC. ESC. NUEVO HORIZONTE 2": (6.2947, -75.5460),
+    "SEC. ESC. BALDOMERO SANIN CANO": (6.2731, -75.5524),
+    "IE RODRIGO LARA BONILLA - SEDE LA SUSANA": (6.26243, -75.553199),
+}
+
+
 def parse_coord(coord_str, is_lon=False):
     if not coord_str:
         return None
@@ -123,6 +189,7 @@ def clean_cand_name(name):
 
 # 1. Load coordinates from divipole and Coordenadas files
 divipole_coords = {} # (muni_norm, post_norm) -> (lat, lon)
+divipole_coords_raw = [] # list of (muni_norm, puesto_raw, lat, lon)
 muni_coords = {} # muni_norm -> list of (lat, lon)
 
 def load_coords_from_file(filepath):
@@ -149,6 +216,9 @@ def load_coords_from_file(filepath):
                 muni_norm = normalize_text(muni)
                 puesto_norm = normalize_text(puesto)
                 
+                # Store raw for fuzzy matching
+                divipole_coords_raw.append((muni_norm, puesto, lat, lon))
+                
                 # Store
                 key = (muni_norm, puesto_norm)
                 if key not in divipole_coords:
@@ -162,6 +232,7 @@ def load_coords_from_file(filepath):
                 if muni_norm not in muni_coords:
                     muni_coords[muni_norm] = []
                 muni_coords[muni_norm].append((lat, lon))
+
 
 load_coords_from_file('divipole_puestos_antioquia.csv')
 if os.path.exists('Coordenadas Puestos Votacion.csv'):
@@ -236,21 +307,47 @@ with open('MMV_XXX_01_000_XXX_XX_XX_XXX_1000.csv', mode='r', encoding='utf-8') a
             post_norm = normalize_text(post_name)
             
             # Match heuristics
-            if (muni_norm, post_norm) in divipole_coords:
+            # 1. Manual overrides first
+            if post_name in manual_overrides:
+                lat, lon = manual_overrides[post_name]
+            # 2. Exact match in database
+            elif (muni_norm, post_norm) in divipole_coords:
                 lat, lon = divipole_coords[(muni_norm, post_norm)]
             else:
-                # Try substring matching
-                matched_coord = None
-                for (m_n, p_n), (la, lo) in divipole_coords.items():
+                # 3. Fuzzy match using word overlap ratio
+                post_words = get_words(post_name)
+                best_match = None
+                best_overlap = 0.0
+                
+                for m_n, p_raw, la, lo in divipole_coords_raw:
                     if m_n == muni_norm:
-                        if p_n in post_norm or post_norm in p_n:
-                            matched_coord = (la, lo)
-                            break
-                if matched_coord:
-                    lat, lon = matched_coord
+                        p_words = get_words(p_raw)
+                        intersection = post_words.intersection(p_words)
+                        if intersection:
+                            ratio = len(intersection) / min(len(post_words), len(p_words))
+                            if ratio > best_overlap:
+                                best_overlap = ratio
+                                best_match = (la, lo)
+                
+                if best_match and best_overlap >= 0.75:
+                    lat, lon = best_match
                 else:
-                    # Fallback to municipality average
-                    lat, lon = muni_avg_coords.get(muni_norm, (None, None))
+                    # 4. Substring matching
+                    matched_coord = None
+                    for (m_n, p_n), (la, lo) in divipole_coords.items():
+                        if m_n == muni_norm:
+                            if p_n in post_norm or post_norm in p_n:
+                                matched_coord = (la, lo)
+                                break
+                    if matched_coord:
+                        lat, lon = matched_coord
+                    else:
+                        # Unmatched: DO NOT fall back to municipal average to avoid false spatial joins
+                        lat, lon = None, None
+            
+            if lat is None or lon is None:
+                print(f"WARNING: Unmatched post '{post_name}' in {muni}")
+
             
             hierarchy[muni][zone][post_id] = {
                 "name": post_name,
@@ -363,7 +460,53 @@ except Exception as e:
     print(f"Could not load 2022 data for comparison: {e}")
 
 
-# 4. Save to electoral_data.json
+# 4. Load potentials from Potencial.xlsx
+print("Loading potentials from Potencial.xlsx...")
+zone_potentials = {}
+try:
+    import openpyxl
+    wb = openpyxl.load_workbook('Potencial.xlsx')
+    ws = wb.active
+    for name in wb.sheetnames:
+        if 'Divisi' in name or 'Electoral' in name:
+            ws = wb[name]
+            break
+    for row in ws.iter_rows(min_row=2):
+        desc = row[0].value
+        pot = row[1].value
+        if desc and pot and "TOTAL" not in str(desc).upper():
+            zone_num = str(desc).replace("Zona ", "")
+            try:
+                zone_key = f"Zona {int(zone_num)}"
+                zone_potentials[zone_key] = int(pot)
+            except ValueError:
+                pass
+    output_data["zone_potentials"] = zone_potentials
+    print(f"Successfully loaded potentials for {len(zone_potentials)} zones.")
+except Exception as e:
+    print(f"Error loading Potencial.xlsx: {e}")
+
+# 4.5 Load exact potentials per post from Divipole Antioquia.xlsx
+print("Loading exact post potentials from Divipole Antioquia.xlsx...")
+post_potentials = {}
+try:
+    import pandas as pd
+    df_divipole = pd.read_excel('Divipole Antioquia.xlsx')
+    for _, row in df_divipole.iterrows():
+        puesto_raw = str(row.get('PUESTO', ''))
+        potencial = row.get('TOTAL', 0)
+        puesto_norm = normalize_text(puesto_raw)
+        
+        # Guardar bajo diferentes formas para facilitar el match luego
+        post_potentials[puesto_norm] = int(potencial)
+        post_potentials[puesto_raw] = int(potencial)
+        
+    output_data["post_potentials"] = post_potentials
+    print(f"Successfully loaded exact potentials for {len(post_potentials)} posts.")
+except Exception as e:
+    print(f"Error loading Divipole Antioquia.xlsx: {e}")
+
+# 5. Save to electoral_data.json
 print("Saving output to electoral_data.json...")
 with open('electoral_data.json', 'w', encoding='utf-8') as f:
     json.dump(output_data, f, ensure_ascii=False, indent=2)

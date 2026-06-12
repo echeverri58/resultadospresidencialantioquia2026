@@ -55,9 +55,9 @@ function initMap() {
 async function loadData() {
     try {
         const [electoralRes, geojsonRes, barriosRes] = await Promise.all([
-            fetch('electoral_data.json'),
-            fetch('medellin.geojson'),
-            fetch('barrios_resultados.geojson')
+            fetch('electoral_data.json?v=' + Date.now()),
+            fetch('medellin.geojson?v=' + Date.now()),
+            fetch('barrios_resultados.geojson?v=' + Date.now())
         ]);
         
         electoralData = await electoralRes.json();
@@ -553,34 +553,61 @@ function switchTab(tab) {
     currentTab = tab;
     
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tab-${tab}`).classList.add('active');
+    let activeTabBtn = document.getElementById(`tab-${tab}`);
+    if (activeTabBtn) activeTabBtn.classList.add('active');
     
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    document.getElementById(`content-${tab}`).classList.add('active');
+    let activeContent = document.getElementById(`content-${tab}`);
+    if (activeContent) activeContent.classList.add('active');
     
-    postsLayer.clearLayers();
+    if (postsLayer) postsLayer.clearLayers();
     
     if (communesLayer) map.removeLayer(communesLayer);
     if (barriosLayer) map.removeLayer(barriosLayer);
     
-    document.getElementById('map-legend').style.display = 'block';
-
-    if (tab === 'communes') {
-        if (communesLayer) {
-            communesLayer.addTo(map);
-        }
-        map.setView([6.25, -75.56], 12);
-        renderMedellinGeneralResults();
-    } else if (tab === 'barrios') {
-        if (barriosLayer) {
-            barriosLayer.addTo(map);
-        }
-        renderPostMarkers('MEDELLIN'); // Show markers to explain gaps
-        map.setView([6.25, -75.56], 12);
-        renderMedellinGeneralResults();
+    const strategyOverlay = document.getElementById('strategy-overlay-panel');
+    const compCard = document.getElementById('comparative-card');
+    const resultsContainer = document.querySelector('.results-container');
+    const mapLegend = document.getElementById('map-legend');
+    
+    if (tab === 'strategy') {
+        if (strategyOverlay) strategyOverlay.style.display = 'flex';
+        if (compCard) compCard.style.display = 'none';
+        if (resultsContainer) resultsContainer.style.display = 'none';
+        if (mapLegend) mapLegend.style.display = 'none';
+        
+        if (typeof renderStrategyMap === 'function') renderStrategyMap();
     } else {
-        document.getElementById('map-legend').style.display = 'none';
-        resetSelectors();
+        if (strategyOverlay) strategyOverlay.style.display = 'none';
+        if (compCard) compCard.style.display = 'block';
+        if (resultsContainer) resultsContainer.style.display = 'block';
+        if (mapLegend) mapLegend.style.display = 'block';
+        
+        // Reset barrios styles and remove strategy tooltips when leaving strategy tab
+        if (barriosLayer) {
+            barriosLayer.eachLayer(function(layer) {
+                barriosLayer.resetStyle(layer);
+                layer.unbindTooltip();
+            });
+        }
+        
+        if (tab === 'communes') {
+            if (communesLayer) {
+                communesLayer.addTo(map);
+            }
+            map.setView([6.25, -75.56], 12);
+            if (typeof renderMedellinGeneralResults === 'function') renderMedellinGeneralResults();
+        } else if (tab === 'barrios') {
+            if (barriosLayer) {
+                barriosLayer.addTo(map);
+            }
+            if (typeof renderPostMarkers === 'function') renderPostMarkers('MEDELLIN'); // Show markers to explain gaps
+            map.setView([6.25, -75.56], 12);
+            if (typeof renderMedellinGeneralResults === 'function') renderMedellinGeneralResults();
+        } else {
+            if (mapLegend) mapLegend.style.display = 'none';
+            if (typeof resetSelectors === 'function') resetSelectors();
+        }
     }
 }
 
@@ -1344,4 +1371,135 @@ window.downloadCard = function() {
             alert("Hubo un error al generar la imagen.");
         });
     }, 50);
+};
+
+
+// Render Strategy Map (Heatmap of Oportunidad)
+function renderStrategyMap() {
+    if (barriosLayer) {
+        barriosLayer.addTo(map);
+    }
+    map.setView([6.25, -75.56], 12);
+    
+    let tops = [];
+    
+    if (geoBarriosData) {
+        // Color barrios layer dynamically
+        barriosLayer.eachLayer(function(layer) {
+            let props = layer.feature.properties;
+            if (props.winner && props.winner !== 'Sin Datos' && props.opportunity !== undefined) {
+                let opportunity = props.opportunity || 0;
+                let potential = props.potential || 0;
+                let abstencion = props.abstencion || 0;
+                let otros = props.otros || 0;
+                
+                tops.push({ name: props.nombre, otros: opportunity });
+                
+                // Color ramp for "opportunity" (Green scale)
+                // Proportional to opportunity. Max is 41,295, but we can scale it nicely with a divisor of 8000.
+                let intensity = Math.min(opportunity / 8000, 1.0);
+                
+                // From light green to dark green
+                // Light: #dcfce7 (220, 252, 231)
+                // Dark: #166534 (22, 101, 52)
+                let r_val = Math.round(220 - intensity * (220 - 22));
+                let g_val = Math.round(252 - intensity * (252 - 101));
+                let b_val = Math.round(231 - intensity * (231 - 52));
+                let fillColor = `rgb(${r_val}, ${g_val}, ${b_val})`;
+                
+                layer.setStyle({
+                    fillColor: fillColor,
+                    fillOpacity: 0.8,
+                    weight: 1,
+                    color: '#166534'
+                });
+                
+                // Bind premium tooltip
+                let tooltipContent = `
+                    <div style="font-family: 'Plus Jakarta Sans', sans-serif; padding: 4px; color: #0f172a;">
+                        <h4 style="margin: 0 0 6px 0; font-size: 14px; font-weight: 800; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">${props.nombre}</h4>
+                        <div style="display: grid; grid-template-columns: auto auto; gap: 4px 12px; font-size: 11px; font-weight: 500;">
+                            <span style="color: #64748b;">Potencial Electoral:</span>
+                            <span style="font-weight: 700; text-align: right;">${formatNumber(potential)}</span>
+                            
+                            <span style="color: #64748b;">Votantes Reales:</span>
+                            <span style="font-weight: 700; text-align: right;">${formatNumber(props.total_votes)}</span>
+                            
+                            <span style="color: #ea580c; font-weight: 600;">Abstención Estimada:</span>
+                            <span style="font-weight: 700; color: #ea580c; text-align: right;">${formatNumber(abstencion)}</span>
+                            
+                            <span style="color: #6366f1; font-weight: 600;">Votos Otros/Blanco/Nulo:</span>
+                            <span style="font-weight: 700; color: #6366f1; text-align: right;">${formatNumber(otros)}</span>
+                            
+                            <span style="color: #166534; font-weight: 700; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px;">Oportunidad Cepeda:</span>
+                            <span style="font-weight: 800; color: #166534; text-align: right; border-top: 1px dashed #cbd5e1; padding-top: 4px; margin-top: 4px; font-size: 12px;">${formatNumber(opportunity)}</span>
+                        </div>
+                    </div>
+                `;
+                layer.bindTooltip(tooltipContent, {sticky: true});
+            } else {
+                layer.setStyle({
+                    fillColor: '#f1f5f9',
+                    fillOpacity: 0.4,
+                    weight: 1,
+                    color: '#cbd5e1'
+                });
+            }
+        });
+    }
+    
+    // Populate Top 50
+    if (tops.length > 0) {
+        tops.sort((a, b) => b.otros - a.otros);
+        let top50 = tops.slice(0, 50);
+        let sumTop50 = top50.reduce((acc, curr) => acc + curr.otros, 0);
+        
+        const totalEl = document.getElementById('strat-top-list-total');
+        if (totalEl) {
+            totalEl.innerHTML = `Potencial en el Top 50: <span style="color: #166534; font-size: 16px;">${formatNumber(sumTop50)} votos</span>`;
+        }
+
+        const listEl = document.getElementById('strat-top-list');
+        if (listEl) {
+            let topHtml = '';
+            top50.forEach((t, i) => {
+                topHtml += `<div style="padding: 10px 16px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 13px; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 8px; width: 75%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <span style="background: #e2e8f0; color: #64748b; width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0;">${i+1}</span>
+                        ${t.name}
+                    </span>
+                    <span style="font-size: 14px; font-weight: 800; color: #166534;">${formatNumber(t.otros)}</span>
+                </div>`;
+            });
+            listEl.innerHTML = topHtml;
+        }
+    }
+}
+
+// Download Strategy Map
+window.downloadStrategy = function() {
+    const mapContainer = document.querySelector('.map-wrapper');
+    const btn = document.getElementById('btn-download-strategy');
+    
+    // Hide button during capture
+    if (btn) btn.style.display = 'none';
+    
+    setTimeout(() => {
+        html2canvas(mapContainer, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: null
+        }).then(canvas => {
+            if (btn) btn.style.display = 'flex';
+            const link = document.createElement('a');
+            link.download = 'estrategia_captacion_john_charcos.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(err => {
+            console.error("Error generating image:", err);
+            if (btn) btn.style.display = 'flex';
+            alert("Hubo un error al capturar el mapa.");
+        });
+    }, 500); // 500ms delay to ensure map tiles are rendered
 };
