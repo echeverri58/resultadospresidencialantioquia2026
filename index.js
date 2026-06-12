@@ -902,6 +902,9 @@ function renderPostMarkers(muni = null, filterZone = null) {
                         <p style="margin:0 0 3px 0; font-size:11px; color:#475569;">${zoneName} | ${muniName}</p>
                         <p style="margin:0; font-size:12px; color:#0f172a;">Ganador: <strong style="color:${winnerColor};">${summary.winner}</strong> (${summary.winnerPct.toFixed(2)}%)</p>
                         <p style="margin:0; font-size:11px; color:#64748b;">Votos Totales: ${formatNumber(summary.totalVotes)}</p>
+                        <hr style="margin:5px 0; border:0; border-top:1px solid #e2e8f0;">
+                        <p style="margin:0; font-size:11px; color:#0f172a;"><strong>Potencial Electoral: ${formatNumber(postInfo.potential || 0)}</strong></p>
+                        <p style="margin:0; font-size:10px; color:#475569;">Mujeres: ${formatNumber(postInfo.potential_mujeres || 0)} | Hombres: ${formatNumber(postInfo.potential_hombres || 0)}</p>
                     </div>
                 `;
                 marker.bindPopup(popupContent);

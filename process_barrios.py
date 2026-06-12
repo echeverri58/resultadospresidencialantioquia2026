@@ -64,9 +64,15 @@ for zone_id, posts in medellin_data.items():
             post_name = post_data.get('name', '')
             post_name_norm = normalize_text(post_name)
             
-            potencial_post = post_potentials.get(post_name_norm, 0)
-            if potencial_post == 0:
-                potencial_post = post_potentials.get(post_name, 0)
+            pot_data = post_potentials.get(post_name_norm, {})
+            if isinstance(pot_data, int):
+                pot_data = {'total': pot_data, 'mujeres': 0, 'hombres': 0}
+            if not pot_data:
+                pot_data = post_potentials.get(post_name, {})
+                if isinstance(pot_data, int):
+                    pot_data = {'total': pot_data, 'mujeres': 0, 'hombres': 0}
+                
+            potencial_post = pot_data.get('total', 0)
                 
             # Fallback if Divipole exact matching fails
             if potencial_post == 0:

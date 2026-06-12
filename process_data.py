@@ -494,17 +494,38 @@ try:
     df_divipole = pd.read_excel('Divipole Antioquia.xlsx')
     for _, row in df_divipole.iterrows():
         puesto_raw = str(row.get('PUESTO', ''))
-        potencial = row.get('TOTAL', 0)
+        pot_total = row.get('TOTAL', 0)
+        pot_mujeres = row.get('MUJERES', 0)
+        pot_hombres = row.get('HOMBRES', 0)
         puesto_norm = normalize_text(puesto_raw)
         
+        pot_data = {
+            'total': int(pot_total) if pd.notna(pot_total) else 0,
+            'mujeres': int(pot_mujeres) if pd.notna(pot_mujeres) else 0,
+            'hombres': int(pot_hombres) if pd.notna(pot_hombres) else 0
+        }
+        
         # Guardar bajo diferentes formas para facilitar el match luego
-        post_potentials[puesto_norm] = int(potencial)
-        post_potentials[puesto_raw] = int(potencial)
+        post_potentials[puesto_norm] = pot_data
+        post_potentials[puesto_raw] = pot_data
         
     output_data["post_potentials"] = post_potentials
     print(f"Successfully loaded exact potentials for {len(post_potentials)} posts.")
 except Exception as e:
     print(f"Error loading Divipole Antioquia.xlsx: {e}")
+
+# 4.6 Inject potentials into hierarchy
+for muni, zones in hierarchy.items():
+    for zone, posts in zones.items():
+        for post_id, post_info in posts.items():
+            post_name = post_info.get('name', '')
+            post_name_norm = normalize_text(post_name)
+            pot_data = post_potentials.get(post_name_norm)
+            if not pot_data:
+                pot_data = post_potentials.get(post_name, {'total': 0, 'mujeres': 0, 'hombres': 0})
+            post_info['potential'] = pot_data.get('total', 0)
+            post_info['potential_mujeres'] = pot_data.get('mujeres', 0)
+            post_info['potential_hombres'] = pot_data.get('hombres', 0)
 
 # 5. Save to electoral_data.json
 print("Saving output to electoral_data.json...")
