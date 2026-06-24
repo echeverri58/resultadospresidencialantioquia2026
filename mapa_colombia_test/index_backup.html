@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAPA LEGISLATIVO DE COLOMBIA</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+    <!-- Título flotante elegante -->
+    <div class="map-title-container">
+        <h1 class="map-title">MAPA LEGISLATIVO DE COLOMBIA</h1>
+    </div>
+
+    <!-- Información del Creador -->
+    <div class="creator-info">
+        <strong>John Alexander Echeverry Ocampo</strong><br>
+        Politólogo y Analista de Datos<br>
+        <i class="fa-solid fa-envelope"></i> echeverri58@gmail.com &nbsp;|&nbsp; <i class="fa-solid fa-phone"></i> 3217466359
+    </div>
+
+    <div id="map"></div>
+    
+    <!-- Offcanvas Panel -->
+    <div id="info-panel" class="offcanvas">
+        <div class="offcanvas-header">
+            <h2 id="dept-title">Departamento</h2>
+            <button id="close-btn" class="close-btn" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="senadores">Senadores</button>
+            <button class="tab-btn" data-tab="representantes">Representantes</button>
+        </div>
+        <div class="offcanvas-body">
+            <div id="politicos-list" class="politicos-list">
+                <!-- La lista se inyectará aquí -->
+            </div>
+            <div id="politico-detail" class="politico-detail hidden">
+                <button id="back-btn" class="back-btn"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                <div class="card">
+                    <div class="card-img-container">
+                        <img id="pol-foto" src="" alt="Foto del político" class="card-img">
+                    </div>
+                    <div class="card-info">
+                        <h3 id="pol-nombre">Nombre</h3>
+                        <p class="pol-partido"><i class="fa-solid fa-landmark"></i> <span id="pol-partido">Partido</span></p>
+                        <p class="pol-votos" id="pol-votos-container"><i class="fa-solid fa-check-to-slot"></i> <span id="pol-votos">0</span> votos</p>
+                        
+                        <div id="pol-extra-info" style="display: none; margin-top: 10px; font-size: 0.9em; text-align: left;">
+                            <p><strong><i class="fa-solid fa-briefcase"></i> Profesión:</strong> <span id="pol-profesion"></span></p>
+                            <p><strong><i class="fa-solid fa-address-card"></i> Estatus:</strong> <span id="pol-estatus"></span></p>
+                            <p style="margin-top: 8px;"><strong><i class="fa-solid fa-book"></i> Trayectoria:</strong> <span id="pol-trayectoria"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="datos_politicos.js"></script>
+    <script src="colombia_departamentos.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
