@@ -101,6 +101,7 @@ body {
 /* Tabs navigation */
 .tabs {
     display: flex;
+    flex-wrap: wrap;
     padding: 16px 24px;
     gap: 10px;
     border-bottom: 1px solid var(--border-color);

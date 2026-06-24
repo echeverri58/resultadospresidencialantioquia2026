@@ -31,7 +31,8 @@
                 border-color: #cbd5e1 !important;
             }
         </style>
-    </head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
 <body>
     <div class="app-container">
         <!-- Sidebar -->
@@ -70,6 +71,9 @@
                 <button class="tab-btn" id="tab-strategy" onclick="switchTab('strategy')" style="color: #166534;">
                     ðŸŽ¯ Estrategia
                 </button>
+            <button class="tab-btn" id="tab-growth" onclick="switchTab('growth')" style="color: #6366f1;">
+                    &#128200; Crecimiento 2V
+                </button>
             </div>
 
             <!-- Tab Content: Communes Map Info -->
@@ -103,7 +107,39 @@
                 </div>
             </div>
 
-            <!-- Tab Content: Hierarchy Filters -->
+            <!-- Tab Content: Crecimiento -->
+            <div id="content-growth" class="tab-content">
+                <div class="info-card" style="border-top: 3px solid #6366f1;">
+                    <h3 style="color: #6366f1;">Análisis de Crecimiento (1ra vs 2da Vuelta)</h3>
+                    <p>Los barrios de Medellín se colorean según la variación neta de votos entre la primera y la segunda vuelta.</p>
+                    <div style="display: flex; gap: 10px; margin-top: 16px;">
+                        <button onclick="downloadGrowthAnalysis(event, 'png')" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #6366f1, #9333ea); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            &#128248; Descargar PNG
+                        </button>
+                        <button onclick="downloadGrowthAnalysis(event, 'pdf')" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #ea580c, #dc2626); color: white; border: none; border-radius: 12px; font-weight: bold; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            &#128196; Descargar PDF
+                        </button>
+                    </div>
+                </div>
+                <div id="crecimiento-container" style="padding: 16px;">
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                        <div id="growth-summary-abelardo" style="flex: 1; background: #ffffff; border-radius: 12px; border: 1px solid #f1f5f9; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;"></div>
+                        <div id="growth-summary-cepeda" style="flex: 1; background: #ffffff; border-radius: 12px; border: 1px solid #f1f5f9; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); text-align: center;"></div>
+                    </div>
+                    <div style="display: flex; gap: 16px;">
+                        <div style="flex: 1;">
+                            <h4 style="color: #9333ea; margin-bottom: 8px;">Top Barrios Abelardo</h4>
+                            <div id="top-growth-abelardo" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4 style="color: #ea580c; margin-bottom: 8px;">Top Barrios Cepeda</h4>
+                            <div id="top-growth-cepeda" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+<!-- Tab Content: Hierarchy Filters -->
             <div id="content-hierarchy" class="tab-content">
                 <div class="filter-group">
                     <label for="select-muni">Municipio</label>
@@ -284,6 +320,6 @@
             crossorigin=""></script>
             
     <!-- Map & App Logic -->
-    <script src="index.js?v=12"></script>
+    <script src="index.js?v=26" charset="utf-8"></script>
 </body>
 </html>

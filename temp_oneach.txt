@@ -1,0 +1,20 @@
+onEachFeature: function (feature, layer) {
+            const nombre = feature.properties.nombre || "Sin Nombre";
+            const winner = feature.properties.winner;
+            
+            let popupContent = `<h3>${nombre}</h3>`;
+            
+            if (currentTab === 'growth') {
+                if (feature.properties.crecimiento_abelardo !== undefined && feature.properties.crecimiento_abelardo !== null) {
+                    const crecAbelardo = feature.properties.crecimiento_abelardo;
+                    const crecCepeda = feature.properties.crecimiento_cepeda;
+                    popupContent += `<p style="margin-top: 4px; margin-bottom: 8px;"><strong>Crecimiento 1v ➔ 2v:</strong></p>`;
+                    popupContent += `<p style="margin: 0;">Abelardo: <strong><span style="color: ${crecAbelardo > 0 ? '#16a34a' : '#dc2626'}">${crecAbelardo > 0 ? '+' : ''}${crecAbelardo.toFixed(1)}%</span></strong> (${formatNumber(feature.properties.votos_1v_abelardo)} ➔ ${formatNumber(feature.properties.votos_2v_abelardo)})</p>`;
+                    popupContent += `<p style="margin: 0;">Cepeda: <strong><span style="color: ${crecCepeda > 0 ? '#16a34a' : '#dc2626'}">${crecCepeda > 0 ? '+' : ''}${crecCepeda.toFixed(1)}%</span></strong> (${formatNumber(feature.properties.votos_1v_cepeda)} ➔ ${formatNumber(feature.properties.votos_2v_cepeda)})</p>`;
+                                if (feature.properties.posts_details && feature.properties.posts_details.length > 0) {
+                        const maxPostsToShow = 10;
+                        const sortedPosts = [...feature.properties.posts_details].sort((a, b) => b.a_c - a.a_c); // Sort by Abelardo growth
+                        let postsHtml = '<div style="margin-top: 12px; max-height: 150px; overflow-y: auto; padding-right: 5px;">';
+                        postsHtml += '<strong style="color: var(--text-secondary); font-size: 11px; text-transform: uppercase;">Detalle por Puesto:</strong>';
+                        
+           

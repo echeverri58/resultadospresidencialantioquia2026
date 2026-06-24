@@ -1,0 +1,109 @@
+function downloadGrowthAnalysis() {
+    const originalBtn = event.currentTarget;
+    const originalText = originalBtn.innerHTML;
+    originalBtn.innerHTML = "⏳ Generando Infografía...";
+    originalBtn.disabled = true;
+
+    // 1. Capture the map first
+    const mapWrapper = document.querySelector('.map-wrapper');
+    
+    html2canvas(mapWrapper, {
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#0f172a'
+    }).then(mapCanvas => {
+        // 2. Create the infographic container off-screen
+        const snapshotDiv = document.createElement('div');
+        snapshotDiv.id = 'infographic-export';
+        snapshotDiv.style.cssText = `
+            position: absolute;
+            top: -50000px;
+            left: 0;
+            width: 1400px;
+            background: #0f172a;
+            padding: 40px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            z-index: -1;
+        `;
+        
+        // Add header
+        snapshotDiv.innerHTML = `
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h1 style="font-size: 36px; margin: 0; color: #f8fafc;">Análisis de Segunda Vuelta (Crecimiento)</h1>
+                <p style="font-size: 18px; color: #94a3b8; margin-top: 10px;">Elecciones Presidenciales Antioquia 2026 - Medellín</p>
+                <p style="font-size: 14px; color: #64748b; margin-top: 5px;">Aplicación creada por <strong>John Alexander Echeverry Ocampo</strong> - Politólogo y analista de datos</p>
+            </div>
+            
+            <div id="snapshot-map-container" style="width: 100%; height: auto; border-radius: 12px; overflow: hidden; margin-bottom: 40px; border: 2px solid rgba(255,255,255,0.1);">
+            </div>
+            
+            <div id="snapshot-stats" style="display: flex; gap: 20px; margin-bottom: 40px;">
+            </div>
+            
+            <div id="snapshot-lists" style="display: flex; flex-direction: column; gap: 40px;">
+                <div>
+                    <h2 style="color: #9333ea; border-bottom: 2px solid rgba(147, 51, 234, 0.3); padding-bottom: 10px;">Top Barrios - Crecimiento Abelardo</h2>
+                    <div id="snapshot-list-abelardo" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;"></div>
+                </div>
+                <div>
+                    <h2 style="color: #ea580c; border-bottom: 2px solid rgba(234, 88, 12, 0.3); padding-bottom: 10px;">Top Barrios - Crecimiento Cepeda</h2>
+                    <div id="snapshot-list-cepeda" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;"></div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(snapshotDiv);
+        
+        // Append map image
+        const mapImg = document.createElement('img');
+        mapImg.src = mapCanvas.toDataURL('image/png');
+        mapImg.style.width = '100%';
+        mapImg.style.display = 'block';
+        document.getElementById('snapshot-map-container').appendChild(mapImg);
+        
+        // Clone stats
+        const statA = document.getElementById('growth-summary-abelardo').cloneNode(true);
+        const statC = document.getElementById('growth-summary-cepeda').cloneNode(true);
+        statA.style.flex = '1';
+        statC.style.flex = '1';
+        document.getElementById('snapshot-stats').appendChild(statA);
+        document.getElementById('snapshot-stats').appendChild(statC);
+        
+        // Clone lists
+        const listA = document.getElementById('top-growth-abelardo').innerHTML;
+        const listC = document.getElementById('top-growth-cepeda').innerHTML;
+        document.getElementById('snapshot-list-abelardo').innerHTML = listA;
+        document.getElementById('snapshot-list-cepeda').innerHTML = listC;
+        
+        // Now capture the whole infographic
+        html2canvas(snapshotDiv, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#0f172a',
+            scale: 2
+        }).then(finalCanvas => {
+            const link = document.createElement('a');
+            link.download = 'Infografia_Crecimiento_2v_Medellin.png';
+            link.href = finalCanvas.toDataURL('image/png');
+            link.click();
+            
+            // Cleanup
+            document.body.removeChild(snapshotDiv);
+            originalBtn.innerHTML = originalText;
+            originalBtn.disabled = false;
+        }).catch(err => {
+            console.error("Error en snapshotDiv", err);
+            document.body.removeChild(snapshotDiv);
+            originalBtn.innerHTML = originalText;
+            originalBtn.disabled = false;
+            alert("Error generando infografía.");
+        });
+        
+    }).catch(err => {
+        console.error("Error capturando mapa", err);
+        originalBtn.innerHTML = originalText;
+        originalBtn.disabled = false;
+        alert("Error capturando el mapa.");
+    });
+}

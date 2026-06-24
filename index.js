@@ -40,12 +40,14 @@ function formatNumber(num) {
 function initMap() {
     map = L.map('map', {
         zoomControl: true,
-        attributionControl: false
+        attributionControl: false,
+        preferCanvas: false
     }).setView([6.25, -75.56], 12);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-        subdomains: 'abcd'
+        subdomains: 'abcd',
+        crossOrigin: true
     }).addTo(map);
 
     postsLayer = L.layerGroup().addTo(map);
@@ -67,6 +69,7 @@ async function loadData() {
         // Render general results
         renderMedellinGeneralResults();
         renderComparativeCard();
+        renderComparativeCard2v();
         renderLegend();
         renderCommunes();
         renderBarrios();
@@ -86,17 +89,25 @@ async function loadData() {
 }
 
 // Render Legend dynamically
-function renderLegend() {
+function renderLegend(tab = 'communes') {
     const container = document.getElementById('legend-items');
     container.innerHTML = '';
     
-    const topCandidates = [
-        "ABELARDO DE LA ESPRIELLA",
-        "IVÁN CEPEDA CASTRO",
-        "SERGIO FAJARDO VALDERRAMA",
-        "PALOMA VALENCIA LASERNA",
-        "VOTOS EN BLANCO"
-    ];
+    let topCandidates = [];
+    if (tab === 'growth') {
+        topCandidates = [
+            "ABELARDO DE LA ESPRIELLA",
+            "IVÁN CEPEDA CASTRO"
+        ];
+    } else {
+        topCandidates = [
+            "ABELARDO DE LA ESPRIELLA",
+            "IVÁN CEPEDA CASTRO",
+            "SERGIO FAJARDO VALDERRAMA",
+            "PALOMA VALENCIA LASERNA",
+            "VOTOS EN BLANCO"
+        ];
+    }
     
     topCandidates.forEach(cand => {
         const item = document.createElement('div');
@@ -141,6 +152,7 @@ function renderMedellinGeneralResults() {
         
     renderResultsList(sorted, totalVotes);
     renderComparativeCard();
+        renderComparativeCard2v();
 }
 
 // Helper to truncate candidate names for chart labels
@@ -334,6 +346,30 @@ function downloadChart() {
 function renderResultsList(results, totalVotes, chartType = 'bar', postInfo = null) {
     document.getElementById('total-votes-count').innerText = formatNumber(totalVotes);
     
+    let blankItem = results.find(r => r.candidate === "VOTOS EN BLANCO");
+    if (blankItem) {
+        let elCount = document.getElementById('blank-votes-count');
+        if (elCount) elCount.innerText = formatNumber(blankItem.votes);
+        let elPct = document.getElementById('blank-votes-pct');
+        if (elPct) elPct.innerText = `(${blankItem.pct.toFixed(2)}%)`;
+    } else {
+        const bCount = document.getElementById('blank-votes-count');
+        if (bCount) bCount.innerText = "0";
+        const bPct = document.getElementById('blank-votes-pct');
+        if (bPct) bPct.innerText = "(0%)";
+    }
+
+    const abstencionBadge = document.getElementById('abstencion-badge');
+    const abstencionPctEl = document.getElementById('abstencion-pct');
+    if (abstencionBadge && abstencionPctEl && postInfo && postInfo.potential && postInfo.potential > 0) {
+        const potential = postInfo.potential;
+        const abstencionPct = Math.max(0, ((potential - totalVotes) / potential) * 100);
+        abstencionPctEl.innerText = `${abstencionPct.toFixed(2)}%`;
+        abstencionBadge.style.display = 'flex';
+    } else if (abstencionBadge) {
+        abstencionBadge.style.display = 'none';
+    }
+    
     const container = document.getElementById('candidates-list');
     container.innerHTML = '';
     
@@ -409,24 +445,27 @@ function renderCommunes() {
     
     communesLayer = L.geoJSON(geojsonData, {
         style: function (feature) {
-            const codigo = feature.properties.CODIGO;
-            const commData = electoralData.communes[codigo];
-            
             let color = defaultColor;
             let opacity = 0.2;
+
+            const codigo = feature.properties.CODIGO;
             
-            if (commData) {
+            if (typeof electoralData !== 'undefined' && electoralData.communes && electoralData.communes[codigo]) {
+                const commData = electoralData.communes[codigo];
                 const winner = commData.winner;
-                color = getCandidateColor(winner);
-                const pct = commData.winner_pct;
-                opacity = 0.3 + ((Math.min(Math.max(pct, 30), 80) - 30) / 50) * 0.6;
+                
+                if (winner && winner !== 'Sin Datos') {
+                    color = getCandidateColor(winner);
+                    const pct = commData.winner_pct;
+                    opacity = 0.3 + ((Math.min(Math.max(pct, 30), 80) - 30) / 50) * 0.6;
+                }
             }
-            
+
             return {
                 fillColor: color,
-                weight: 1.5,
-                opacity: 0.5,
-                color: '#cbd5e1', // border for light theme
+                weight: 2,
+                opacity: 0.8,
+                color: '#475569', // Stronger border for communes so they are visible under barrios
                 fillOpacity: opacity
             };
         },
@@ -481,20 +520,49 @@ function renderBarrios() {
     
     barriosLayer = L.geoJSON(geoBarriosData, {
         style: function (feature) {
-            const winner = feature.properties.winner;
             let color = defaultColor;
             let opacity = 0.2;
             
-            if (winner && winner !== 'Sin Datos' && feature.properties.results && feature.properties.results.length > 0) {
-                color = getCandidateColor(winner);
-                const pct = feature.properties.results[0].pct;
-                opacity = 0.3 + ((Math.min(Math.max(pct, 30), 80) - 30) / 50) * 0.6;
+            if (currentTab === 'growth') {
+                let cAbe = feature.properties.crecimiento_abelardo || 0;
+                let cCep = feature.properties.crecimiento_cepeda || 0;
+                
+                let growthWinner = null;
+                if (cAbe > cCep && cAbe > 0) growthWinner = 'ABELARDO DE LA ESPRIELLA';
+                else if (cCep > cAbe && cCep > 0) growthWinner = 'IVÁN CEPEDA CASTRO';
+                
+                if (growthWinner) {
+                    color = getCandidateColor(growthWinner);
+                    let totalCrecimiento = cAbe + cCep;
+                    if (totalCrecimiento > 0) {
+                        let candCrecimiento = growthWinner === 'ABELARDO DE LA ESPRIELLA' ? cAbe : cCep;
+                        let pct = (candCrecimiento / totalCrecimiento) * 100;
+                        opacity = 0.3 + ((Math.min(Math.max(pct, 50), 100) - 50) / 50) * 0.6;
+                    } else {
+                        opacity = 0.3;
+                    }
+                } else {
+                    // Hide barrios without growth
+                    return {
+                        fillColor: 'transparent',
+                        weight: 0,
+                        opacity: 0,
+                        fillOpacity: 0
+                    };
+                }
+            } else {
+                const winner = feature.properties.winner;
+                if (winner && winner !== 'Sin Datos' && feature.properties.results && feature.properties.results.length > 0) {
+                    color = getCandidateColor(winner);
+                    const pct = feature.properties.results[0].pct;
+                    opacity = 0.3 + ((Math.min(Math.max(pct, 30), 80) - 30) / 50) * 0.6;
+                }
             }
             
             return {
                 fillColor: color,
                 weight: 1.5,
-                opacity: 0.5,
+                opacity: 0.8,
                 color: '#cbd5e1', // border for light theme
                 fillOpacity: opacity
             };
@@ -504,18 +572,61 @@ function renderBarrios() {
             const winner = feature.properties.winner;
             
             let popupContent = `<h3>${nombre}</h3>`;
-            if (winner && winner !== 'Sin Datos') {
-                const results = feature.properties.results;
-                popupContent += `<p>Ganador: <strong>${winner}</strong> (${results[0].pct.toFixed(2)}%)</p>`;
-                popupContent += `<p>Votos Totales: ${formatNumber(feature.properties.total_votes)}</p>`;
-                if (feature.properties.posts && feature.properties.posts.length > 0) {
-                    const maxPostsToShow = 5;
-                    const postsList = feature.properties.posts.slice(0, maxPostsToShow).join(', ');
-                    const moreText = feature.properties.posts.length > maxPostsToShow ? ` y ${feature.properties.posts.length - maxPostsToShow} más...` : '';
-                    popupContent += `<p style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"><strong>Puestos (${feature.properties.posts.length}):</strong> ${postsList}${moreText}</p>`;
+            
+            if (currentTab === 'growth') {
+                if (feature.properties.crecimiento_abelardo !== undefined && feature.properties.crecimiento_abelardo !== null) {
+                    const crecAbelardo = feature.properties.crecimiento_abelardo;
+                    const crecCepeda = feature.properties.crecimiento_cepeda;
+                    popupContent += `<p style="margin-top: 4px; margin-bottom: 8px;"><strong>Crecimiento 1v ➔ 2v:</strong></p>`;
+                    popupContent += `<p style="margin: 0;">Abelardo: <strong><span style="color: ${crecAbelardo > 0 ? '#16a34a' : '#dc2626'}">${crecAbelardo > 0 ? '+' : ''}${crecAbelardo.toFixed(1)}%</span></strong> (${formatNumber(feature.properties.votos_1v_abelardo)} ➔ ${formatNumber(feature.properties.votos_2v_abelardo)})</p>`;
+                    popupContent += `<p style="margin: 0;">Cepeda: <strong><span style="color: ${crecCepeda > 0 ? '#16a34a' : '#dc2626'}">${crecCepeda > 0 ? '+' : ''}${crecCepeda.toFixed(1)}%</span></strong> (${formatNumber(feature.properties.votos_1v_cepeda)} ➔ ${formatNumber(feature.properties.votos_2v_cepeda)})</p>`;
+                                if (feature.properties.posts_details && feature.properties.posts_details.length > 0) {
+                        const maxPostsToShow = 10;
+                        const sortedPosts = [...feature.properties.posts_details].sort((a, b) => b.a_c - a.a_c); // Sort by Abelardo growth
+                        let postsHtml = '<div style="margin-top: 12px; max-height: 150px; overflow-y: auto; padding-right: 5px;">';
+                        postsHtml += '<strong style="color: var(--text-secondary); font-size: 11px; text-transform: uppercase;">Detalle por Puesto:</strong>';
+                        
+                        sortedPosts.slice(0, maxPostsToShow).forEach(p => {
+                            postsHtml += `
+                            <div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px; margin-top: 6px; font-size: 11px;">
+                                <strong style="color: #cbd5e1; display: block; margin-bottom: 4px; font-size: 10px;">${p.name}</strong>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #9333ea;">Abel: ${p.a_1v} ➔ ${p.a_2v} (<strong style="color: ${p.a_c > 0 ? '#16a34a' : '#dc2626'}">${p.a_c > 0 ? '+' : ''}${p.a_c}</strong>)</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                                    <span style="color: #ea580c;">Cepe: ${p.c_1v} ➔ ${p.c_2v} (<strong style="color: ${p.c_c > 0 ? '#16a34a' : '#dc2626'}">${p.c_c > 0 ? '+' : ''}${p.c_c}</strong>)</span>
+                                </div>
+                            </div>`;
+                        });
+                        
+                        if (sortedPosts.length > maxPostsToShow) {
+                            postsHtml += `<div style="font-size: 10px; color: #94a3b8; margin-top: 6px; text-align: center;">Y ${sortedPosts.length - maxPostsToShow} puestos más...</div>`;
+                        }
+                        postsHtml += '</div>';
+                        popupContent += postsHtml;
+                    } else if (feature.properties.posts && feature.properties.posts.length > 0) {
+                        const maxPostsToShow = 5;
+                        const postsList = feature.properties.posts.slice(0, maxPostsToShow).join(', ');
+                        const moreText = feature.properties.posts.length > maxPostsToShow ? ` y ${feature.properties.posts.length - maxPostsToShow} más...` : '';
+                        popupContent += `<p style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"><strong>Puestos (${feature.properties.posts.length}):</strong> ${postsList}${moreText}</p>`;
+                    }
+                } else {
+                    popupContent += `<p>Sin datos de crecimiento 2da Vuelta.</p>`;
                 }
             } else {
-                popupContent += `<p>Sin datos electorales</p><p style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);">No se registraron puestos de votación geolocalizados dentro de este barrio o vereda.</p>`;
+                if (winner && winner !== 'Sin Datos') {
+                    const results = feature.properties.results;
+                    popupContent += `<p>Ganador: <strong>${winner}</strong> (${results[0].pct.toFixed(2)}%)</p>`;
+                    popupContent += `<p>Votos Totales: ${formatNumber(feature.properties.total_votes)}</p>`;
+                    if (feature.properties.posts && feature.properties.posts.length > 0) {
+                        const maxPostsToShow = 5;
+                        const postsList = feature.properties.posts.slice(0, maxPostsToShow).join(', ');
+                        const moreText = feature.properties.posts.length > maxPostsToShow ? ` y ${feature.properties.posts.length - maxPostsToShow} más...` : '';
+                        popupContent += `<p style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);"><strong>Puestos (${feature.properties.posts.length}):</strong> ${postsList}${moreText}</p>`;
+                    }
+                } else {
+                    popupContent += `<p>Sin datos electorales</p><p style="font-size: 11px; margin-top: 8px; color: var(--text-secondary);">No se registraron puestos de votación geolocalizados dentro de este barrio o vereda.</p>`;
+                }
             }
             
             layer.bindPopup(popupContent);
@@ -545,12 +656,14 @@ function renderBarrios() {
                 }
             });
         }
-    });
+    }).addTo(map);
 }
 
 // Switch Tabs
 function switchTab(tab) {
     currentTab = tab;
+    
+    renderLegend(tab);
     
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     let activeTabBtn = document.getElementById(`tab-${tab}`);
@@ -594,14 +707,30 @@ function switchTab(tab) {
         if (tab === 'communes') {
             if (communesLayer) {
                 communesLayer.addTo(map);
+                communesLayer.eachLayer(function(layer) {
+                    communesLayer.resetStyle(layer);
+                });
             }
             map.setView([6.25, -75.56], 12);
             if (typeof renderMedellinGeneralResults === 'function') renderMedellinGeneralResults();
-        } else if (tab === 'barrios') {
+        } else if (tab === 'barrios' || tab === 'growth') {
+            if (communesLayer) {
+                communesLayer.addTo(map);
+                communesLayer.eachLayer(function(layer) {
+                    communesLayer.resetStyle(layer);
+                });
+            }
             if (barriosLayer) {
                 barriosLayer.addTo(map);
+                // Refresh styles to pick up tab-specific coloring
+                barriosLayer.eachLayer(function(layer) {
+                    barriosLayer.resetStyle(layer);
+                });
+                barriosLayer.eachLayer(function(layer) { layer.bringToFront(); });
             }
-            if (typeof renderPostMarkers === 'function') renderPostMarkers('MEDELLIN'); // Show markers to explain gaps
+            if (tab === 'barrios' && typeof renderPostMarkers === 'function') renderPostMarkers('MEDELLIN');
+            if (tab === 'growth' && typeof populateTopGrowth === 'function') populateTopGrowth();
+            
             map.setView([6.25, -75.56], 12);
             if (typeof renderMedellinGeneralResults === 'function') renderMedellinGeneralResults();
         } else {
@@ -685,10 +814,16 @@ function getPostElectoralSummary(postInfo) {
     const winnerName = electoralData.candidates[winnerIdx];
     const winnerPct = totalVotes > 0 ? (maxVotes / totalVotes * 100) : 0;
     
+    const blancoIdx = electoralData.candidates.indexOf("VOTOS EN BLANCO");
+    const votosBlanco = blancoIdx !== -1 ? totals[blancoIdx] : 0;
+    const blancoPct = totalVotes > 0 ? (votosBlanco / totalVotes * 100) : 0;
+    
     return {
         winner: winnerName,
         winnerPct: winnerPct,
-        totalVotes: totalVotes
+        totalVotes: totalVotes,
+        votosBlanco: votosBlanco,
+        blancoPct: blancoPct
     };
 }
 
@@ -896,12 +1031,20 @@ function renderPostMarkers(muni = null, filterZone = null) {
                     fillOpacity: opacity
                 });
                 
+                let abstencionHtml = '';
+                if (postInfo.potential && postInfo.potential > 0) {
+                    const abstencionPct = Math.max(0, ((postInfo.potential - summary.totalVotes) / postInfo.potential) * 100);
+                    abstencionHtml = `<p style="margin:0; font-size:11px; color:#ef4444;"><strong>Abstención: ${abstencionPct.toFixed(2)}%</strong></p>`;
+                }
+
                 const popupContent = `
                     <div style="font-family: 'Plus Jakarta Sans', sans-serif;">
                         <h3 style="margin:0 0 5px 0; font-size: 14px; font-weight:700; color:#0f172a;">${postInfo.name}</h3>
                         <p style="margin:0 0 3px 0; font-size:11px; color:#475569;">${zoneName} | ${muniName}</p>
                         <p style="margin:0; font-size:12px; color:#0f172a;">Ganador: <strong style="color:${winnerColor};">${summary.winner}</strong> (${summary.winnerPct.toFixed(2)}%)</p>
                         <p style="margin:0; font-size:11px; color:#64748b;">Votos Totales: ${formatNumber(summary.totalVotes)}</p>
+                        <p style="margin:0; font-size:11px; color:#64748b;">Votos en Blanco: ${formatNumber(summary.votosBlanco)} (${summary.blancoPct.toFixed(2)}%)</p>
+                        ${abstencionHtml}
                         <hr style="margin:5px 0; border:0; border-top:1px solid #e2e8f0;">
                         <p style="margin:0; font-size:11px; color:#0f172a;"><strong>Potencial Electoral: ${formatNumber(postInfo.potential || 0)}</strong></p>
                         <p style="margin:0; font-size:10px; color:#475569;">Mujeres: ${formatNumber(postInfo.potential_mujeres || 0)} | Hombres: ${formatNumber(postInfo.potential_hombres || 0)}</p>
@@ -1149,7 +1292,9 @@ function onMuniChange() {
 function aggregateAndRenderResultsForAll() {
     let totals = Array(electoralData.candidates.length).fill(0);
     
-    Object.values(electoralData.hierarchy).forEach(zones => {
+    let mData = electoralData.hierarchy["MEDELLIN"];
+        if(mData) {
+          Object.values(mData).forEach(zones => {
         Object.values(zones).forEach(posts => {
             Object.values(posts).forEach(postInfo => {
                 Object.values(postInfo.tables).forEach(tableVotes => {
@@ -1160,6 +1305,7 @@ function aggregateAndRenderResultsForAll() {
             });
         });
     });
+    }
     
     const totalVotes = totals.reduce((a, b) => a + b, 0);
     
@@ -1339,6 +1485,7 @@ function aggregateAndRenderResults({ muni, zone, postId, table }) {
     
     // Dynamically update comparative card
     renderComparativeCard(muni, zone, postId);
+    renderComparativeCard2v(muni, zone, postId, table);
 }
 
 // Initial triggers
@@ -1346,7 +1493,33 @@ initMap();
 loadData();
 
 // Download Card as PNG Image
-window.downloadCard = function() {
+
+  window.downloadCard2v = function() {
+      const card = document.getElementById('comparative-card-2v');
+      const btnContainer = document.getElementById('download-btn-container-2v');
+      
+      btnContainer.style.display = 'none';
+      
+      setTimeout(() => {
+          html2canvas(card, {
+              scale: 2,
+              backgroundColor: '#ffffff',
+              useCORS: true
+          }).then(canvas => {
+              btnContainer.style.display = 'block';
+              const link = document.createElement('a');
+              link.download = 'analisis_1v_vs_2v_john_alexander_echeverry.png';
+              link.href = canvas.toDataURL('image/png');
+              link.click();
+          }).catch(err => {
+              console.error("Error capturing canvas:", err);
+              btnContainer.style.display = 'block';
+              alert("Hubo un error al generar la imagen. Intenta de nuevo.");
+          });
+      }, 100);
+  };
+
+  window.downloadCard = function() {
     const card = document.getElementById('comparative-card');
     const btnContainer = document.getElementById('download-btn-container');
     
@@ -1505,4 +1678,476 @@ window.downloadStrategy = function() {
             alert("Hubo un error al capturar el mapa.");
         });
     }, 500); // 500ms delay to ensure map tiles are rendered
+};
+
+// Function to populate the Top Growth lists
+function populateTopGrowth() {
+    if (!geoBarriosData || !geoBarriosData.features) return;
+
+    let featuresWithGrowth = geoBarriosData.features.filter(f => 
+        f.properties.crecimiento_abelardo !== undefined && f.properties.crecimiento_abelardo !== null
+    );
+
+    let abelardoBarrios = [];
+    let cepedaBarrios = [];
+    let totalCrecimientoAbelardo = 0;
+    let totalCrecimientoCepeda = 0;
+
+    featuresWithGrowth.forEach(f => {
+        const props = f.properties;
+        const ca = props.crecimiento_abelardo || 0;
+        const cc = props.crecimiento_cepeda || 0;
+        const name = props.nombre || 'Desconocido';
+        
+        if (ca > 0) {
+            abelardoBarrios.push({ name: name, growth: ca, v1: props.votos_1v_abelardo, v2: props.votos_2v_abelardo });
+            totalCrecimientoAbelardo += ca;
+        } else if (ca < 0) {
+            totalCrecimientoAbelardo += ca;
+        }
+
+        if (cc > 0) {
+            cepedaBarrios.push({ name: name, growth: cc, v1: props.votos_1v_cepeda, v2: props.votos_2v_cepeda });
+            totalCrecimientoCepeda += cc;
+        } else if (cc < 0) {
+            totalCrecimientoCepeda += cc;
+        }
+    });
+
+    // Update Total Summary
+    const elTotalAbelardo = document.getElementById('total-growth-abelardo');
+    if(elTotalAbelardo) {
+        elTotalAbelardo.textContent = (totalCrecimientoAbelardo > 0 ? '+' : '') + Math.round(totalCrecimientoAbelardo).toLocaleString('es-CO') + ' votos netos';
+    }
+    
+    const elTotalCepeda = document.getElementById('total-growth-cepeda');
+    if(elTotalCepeda) {
+        elTotalCepeda.textContent = (totalCrecimientoCepeda > 0 ? '+' : '') + Math.round(totalCrecimientoCepeda).toLocaleString('es-CO') + ' votos netos';
+    }
+
+    abelardoBarrios.sort((a, b) => b.growth - a.growth);
+    cepedaBarrios.sort((a, b) => b.growth - a.growth);
+
+    const topA = abelardoBarrios.slice(0, 20);
+    const topC = cepedaBarrios.slice(0, 20);
+    window.growthTopA = topA;
+    window.growthTopC = topC;
+
+    const renderList = (list, color, textcolor) => {
+        if (list.length === 0) return '<div style="padding: 8px; color: var(--text-secondary);">Sin datos.</div>';
+        
+        const maxGrowth = list[0].growth; // For progress bar
+        
+        return list.map((item, index) => {
+            const percentage = Math.max(5, (item.growth / maxGrowth) * 100);
+            return `
+            <div onclick="zoomToBarrio('${item.name.replace(/'/g, "\\'")}')" style="cursor: pointer; margin-bottom: 12px; background: rgba(255,255,255,0.04); padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s, border-color 0.2s;" onmouseover="this.style.transform='translateX(4px)'; this.style.borderColor='${color}';" onmouseout="this.style.transform='translateX(0)'; this.style.borderColor='rgba(255,255,255,0.08)';">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+                    <div>
+                        <strong style="color: #f8fafc; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                            <span style="background: ${color}; color: white; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">${index + 1}</span> 
+                            ${item.name}
+                        </strong>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="color: ${textcolor}; font-weight: 900; font-size: 16px; display: block;">+${Math.round(item.growth).toLocaleString('es-CO')}</span>
+                        <span style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: 600;">Votos Nuevos</span>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; font-size: 11px; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 6px;">
+                    <div style="flex: 1; text-align: center;">
+                        <div style="color: #64748b; margin-bottom: 2px;">1ra Vuelta</div>
+                        <strong style="color: #cbd5e1;">${formatNumber(item.v1)}</strong>
+                    </div>
+                    <div style="display: flex; align-items: center; color: ${color};">➔</div>
+                    <div style="flex: 1; text-align: center;">
+                        <div style="color: #64748b; margin-bottom: 2px;">2da Vuelta</div>
+                        <strong style="color: white;">${formatNumber(item.v2)}</strong>
+                    </div>
+                </div>
+                <div style="width: 100%; background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+                    <div style="width: ${percentage}%; background: ${color}; height: 100%; border-radius: 3px;"></div>
+                </div>
+            </div>`;
+        }).join('');
+    };
+
+    const containerA = document.getElementById('top-growth-abelardo');
+    if (containerA) containerA.innerHTML = renderList(topA, '#9333ea', '#c084fc'); 
+
+    const containerC = document.getElementById('top-growth-cepeda');
+    if (containerC) containerC.innerHTML = renderList(topC, '#ea580c', '#fb923c'); 
+}
+
+
+// Render Comparative Card 1v vs 2v
+function renderComparativeCard2v(muniName = null, zoneName = null, postId = null, tableName = null) {
+    const card = document.getElementById('comparative-card-2v');
+    if (!card) return;
+    
+    let stats1v = { abelardo: 0, cepeda: 0, total: 0 };
+    let stats2v = { abelardo: 0, cepeda: 0, total: 0 };
+    let subtitle = '';
+    
+    let candIdxEspriella = electoralData.candidates.indexOf("ABELARDO DE LA ESPRIELLA");
+    let candIdxPaloma = electoralData.candidates.indexOf("PALOMA VALENCIA LASERNA");
+    let candIdxCepeda = electoralData.candidates.indexOf("IVÁN CEPEDA CASTRO");
+
+    function processTable(tableVotes1v, tableVotes2v) {
+        if (tableVotes1v) {
+            stats1v.abelardo += (tableVotes1v[candIdxEspriella] || 0) + (tableVotes1v[candIdxPaloma] || 0);
+            stats1v.cepeda += tableVotes1v[candIdxCepeda] || 0;
+            stats1v.total += tableVotes1v.reduce((a, b) => a + b, 0);
+        }
+        if (tableVotes2v) {
+            stats2v.abelardo += tableVotes2v['ABELARDO DE LA ESPRIELLA'] || 0;
+            stats2v.cepeda += tableVotes2v['IVAN CEPEDA CASTRO'] || 0;
+            stats2v.total += Object.values(tableVotes2v).reduce((a, b) => a + b, 0);
+        }
+    }
+
+    if (muniName && zoneName && postId && tableName) {
+        subtitle = `Mesa: ${tableName} | Puesto: ${electoralData.hierarchy[muniName][zoneName][postId].name}`;
+        let postInfo = electoralData.hierarchy[muniName][zoneName][postId];
+        let t1v = postInfo.tables[tableName];
+        let tPad = tableName.padStart(3, '0');
+        let t2v = postInfo.tables_2v ? postInfo.tables_2v[tPad] : null;
+        processTable(t1v, t2v);
+    } else if (muniName && zoneName && postId) {
+        subtitle = `Puesto: ${electoralData.hierarchy[muniName][zoneName][postId].name}`;
+        let postInfo = electoralData.hierarchy[muniName][zoneName][postId];
+        Object.keys(postInfo.tables).forEach(t => {
+            let t1v = postInfo.tables[t];
+            let tPad = t.padStart(3, '0');
+            let t2v = postInfo.tables_2v ? postInfo.tables_2v[tPad] : null;
+            processTable(t1v, t2v);
+        });
+    } else if (muniName && muniName !== "TODOS") {
+        subtitle = `Municipio: ${muniName}`;
+        let muniData = electoralData.hierarchy[muniName];
+        Object.values(muniData).forEach(zonePosts => {
+            Object.values(zonePosts).forEach(postInfo => {
+                Object.keys(postInfo.tables).forEach(t => {
+                    let t1v = postInfo.tables[t];
+                    let tPad = t.padStart(3, '0');
+                    let t2v = postInfo.tables_2v ? postInfo.tables_2v[tPad] : null;
+                    processTable(t1v, t2v);
+                });
+            });
+        });
+    } else {
+        subtitle = "Medellín (Global)";
+        let mData = electoralData.hierarchy["MEDELLIN"];
+        if(mData) {
+          Object.values(mData).forEach(zonePosts => {
+            Object.values(zonePosts).forEach(postInfo => {
+                Object.keys(postInfo.tables).forEach(t => {
+                    let t1v = postInfo.tables[t];
+                    let tPad = t.padStart(3, '0');
+                    let t2v = postInfo.tables_2v ? postInfo.tables_2v[tPad] : null;
+                    processTable(t1v, t2v);
+                });
+            });
+          });
+        }
+    }
+
+    if (stats1v.total === 0 && stats2v.total === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    card.style.display = 'block';
+    const headerTitle = card.querySelector('#comp-2v-subtitle');
+    if (headerTitle) {
+        headerTitle.innerText = subtitle;
+    }
+    
+    let pctAbe1v = stats1v.total > 0 ? (stats1v.abelardo / stats1v.total * 100) : 0;
+    let pctCep1v = stats1v.total > 0 ? (stats1v.cepeda / stats1v.total * 100) : 0;
+    let pctAbe2v = stats2v.total > 0 ? (stats2v.abelardo / stats2v.total * 100) : 0;
+    let pctCep2v = stats2v.total > 0 ? (stats2v.cepeda / stats2v.total * 100) : 0;
+    
+    document.getElementById('comp-1v-total').innerText = `Participación: ${formatNumber(stats1v.total)}`;
+    document.getElementById('comp-2v-total').innerText = `Participación: ${formatNumber(stats2v.total)}`;
+
+    function getDeltaBadge(delta) {
+        if (delta > 0) return `<span style="background:#dcfce7; color:#166534; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">↑ ${Math.abs(delta).toFixed(1)}%</span>`;
+        if (delta < 0) return `<span style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">↓ ${Math.abs(delta).toFixed(1)}%</span>`;
+        return `<span style="background:#f1f5f9; color:#475569; padding:2px 6px; border-radius:12px; font-size:11px; font-weight:700; margin-left:6px; display:inline-flex; align-items:center; vertical-align: middle;">= 0.0%</span>`;
+    }
+
+    document.getElementById('comp-1v-abelardo').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Abelardo</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#0284c7;">${pctAbe1v.toFixed(1)}%</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats1v.abelardo)} de ${formatNumber(stats1v.total)})</div>
+    `;
+    
+    document.getElementById('comp-1v-cepeda').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Cepeda</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#ea580c;">${pctCep1v.toFixed(1)}%</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats1v.cepeda)} de ${formatNumber(stats1v.total)})</div>
+    `;
+
+    document.getElementById('comp-2v-abelardo').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Abelardo</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#0284c7;">${pctAbe2v.toFixed(1)}%</span>
+            ${getDeltaBadge(pctAbe2v - pctAbe1v)}
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2v.abelardo)} de ${formatNumber(stats2v.total)})</div>
+    `;
+    
+    document.getElementById('comp-2v-cepeda').innerHTML = `
+        <div style="font-size:11px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Cepeda</div>
+        <div style="display:flex; justify-content:center; align-items:baseline; margin:4px 0;">
+            <span style="font-size:22px; font-weight:800; color:#ea580c;">${pctCep2v.toFixed(1)}%</span>
+            ${getDeltaBadge(pctCep2v - pctCep1v)}
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary);">(${formatNumber(stats2v.cepeda)} de ${formatNumber(stats2v.total)})</div>
+    `;
+
+    const summaryEl = document.getElementById('comp-2v-shift-summary');
+    const expEl = document.getElementById('comp-2v-shift-explanation');
+    
+    if (stats2v.total > 0) {
+        let diffAbe = stats2v.abelardo - stats1v.abelardo;
+        let diffCep = stats2v.cepeda - stats1v.cepeda;
+        
+        summaryEl.innerText = `Crecimiento (1v -> 2v)`;
+        summaryEl.style.color = '#334155';
+        expEl.innerHTML = `Abelardo sumó <strong style="color:#0284c7;">${diffAbe > 0 ? '+' : ''}${formatNumber(diffAbe)}</strong> votos.<br>
+                           Cepeda sumó <strong style="color:#ea580c;">${diffCep > 0 ? '+' : ''}${formatNumber(diffCep)}</strong> votos.<br>
+                           Participación: <strong style="color:#64748b;">${stats2v.total > stats1v.total ? '+' : ''}${formatNumber(stats2v.total - stats1v.total)}</strong> votos.`;
+    } else {
+        summaryEl.innerText = "Sin datos en Segunda Vuelta";
+        expEl.innerHTML = "No se ha cargado información de la segunda vuelta para este nivel.";
+    }
+}
+
+function downloadGrowthAnalysis(event, format = 'png') {
+    const originalBtn = event.currentTarget;
+    const originalText = originalBtn.innerHTML;
+    originalBtn.innerHTML = "&#x23F3; Generando...";
+    originalBtn.disabled = true;
+
+    // 1. Center the map exactly on Medellin before capture to avoid CSS transform offsets
+    map.setView([6.25, -75.56], 12, { animate: false });
+    
+    setTimeout(() => {
+        const mapWrapper = document.querySelector('.map-wrapper');
+        
+        html2canvas(mapWrapper, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#0f172a'
+        }).then(mapCanvas => {
+            // 2. Create the infographic container off-screen
+            const snapshotDiv = document.createElement('div');
+        snapshotDiv.id = 'infographic-export';
+        snapshotDiv.style.cssText = `
+            position: absolute;
+            top: -50000px;
+            left: 0;
+            width: 1400px;
+            background: #ffffff;
+            padding: 40px;
+            color: #1e293b;
+            font-family: 'Inter', sans-serif;
+            z-index: -1;
+            border-radius: 8px;
+        `;
+        
+        let abelardoRows = '';
+        let cepedaRows = '';
+        
+        if (window.growthTopA && window.growthTopC) {
+            window.growthTopA.forEach((item, index) => {
+                abelardoRows += `
+                <tr style="background-color: ${index % 2 === 0 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 12px; font-weight: bold; color: #475569;">${index + 1}</td>
+                    <td style="padding: 12px; color: #0f172a;">${item.name}</td>
+                    <td style="padding: 12px; color: #475569;">${formatNumber(item.v1)}</td>
+                    <td style="padding: 12px; color: #475569;">${formatNumber(item.v2)}</td>
+                    <td style="padding: 12px; font-weight: bold; color: #16a34a;">+${formatNumber(item.v2 - item.v1)} <span style="font-size:0.85em; color:#9333ea;">(+${item.growth.toFixed(1)}%)</span></td>
+                </tr>`;
+            });
+            window.growthTopC.forEach((item, index) => {
+                cepedaRows += `
+                <tr style="background-color: ${index % 2 === 0 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 12px; font-weight: bold; color: #475569;">${index + 1}</td>
+                    <td style="padding: 12px; color: #0f172a;">${item.name}</td>
+                    <td style="padding: 12px; color: #475569;">${formatNumber(item.v1)}</td>
+                    <td style="padding: 12px; color: #475569;">${formatNumber(item.v2)}</td>
+                    <td style="padding: 12px; font-weight: bold; color: #16a34a;">+${formatNumber(item.v2 - item.v1)} <span style="font-size:0.85em; color:#ea580c;">(+${item.growth.toFixed(1)}%)</span></td>
+                </tr>`;
+            });
+        }
+        
+        snapshotDiv.innerHTML = `
+            <div style="text-align: center; margin-bottom: 30px; border-bottom: 3px solid #e2e8f0; padding-bottom: 20px;">
+                <h1 style="font-size: 38px; margin: 0; color: #0f172a;">An&aacute;lisis de Segunda Vuelta (Crecimiento)</h1>
+                <p style="font-size: 20px; color: #475569; margin-top: 10px;">Elecciones Presidenciales Antioquia 2026 - Medell&iacute;n</p>
+                <div style="font-size: 16px; color: #64748b; margin-top: 5px; display: flex; justify-content: center; gap: 20px;">
+                    <span>Autor: <strong>John Alexander Echeverry</strong> (Polit&oacute;logo y analista de datos)</span>
+                    <span>&#x1F4F1; WhatsApp: <strong>3217466359</strong></span>
+                    <span>&#x2709;&#xFE0F; Correo: <strong>echeverri58@gmail.com</strong></span>
+                </div>
+            </div>
+            
+            <div id="snapshot-map-container" style="width: 100%; height: auto; border-radius: 12px; overflow: hidden; margin-bottom: 40px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            </div>
+            
+            <div id="snapshot-stats" style="display: flex; gap: 20px; margin-bottom: 30px;">
+            </div>
+            
+            <h2 style="text-align: center; color: #1e293b; margin-bottom: 20px;">Top 20 Barrios de Mayor Crecimiento</h2>
+            <div style="display: flex; gap: 20px; width: 100%;">
+                <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="background-color: #9333ea; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 18px;">
+                        Crecimiento Abelardo
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f1f5f9; color: #475569; font-size: 0.9em;">
+                                <th style="padding: 12px;">#</th>
+                                <th style="padding: 12px;">Barrio</th>
+                                <th style="padding: 12px;">Votos 1V</th>
+                                <th style="padding: 12px;">Votos 2V</th>
+                                <th style="padding: 12px;">Crecimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>${abelardoRows}</tbody>
+                    </table>
+                </div>
+                
+                <div style="flex: 1; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                    <div style="background-color: #ea580c; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 18px;">
+                        Crecimiento Cepeda
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                        <thead>
+                            <tr style="background-color: #f1f5f9; color: #475569; font-size: 0.9em;">
+                                <th style="padding: 12px;">#</th>
+                                <th style="padding: 12px;">Barrio</th>
+                                <th style="padding: 12px;">Votos 1V</th>
+                                <th style="padding: 12px;">Votos 2V</th>
+                                <th style="padding: 12px;">Crecimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>${cepedaRows}</tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(snapshotDiv);
+        
+        const mapImg = document.createElement('img');
+        mapImg.src = mapCanvas.toDataURL('image/png');
+        mapImg.style.width = '100%';
+        mapImg.style.display = 'block';
+        document.getElementById('snapshot-map-container').appendChild(mapImg);
+        
+        const statA = document.getElementById('growth-summary-abelardo');
+        const statC = document.getElementById('growth-summary-cepeda');
+        if (statA && statC) {
+            const cloneA = statA.cloneNode(true);
+            const cloneC = statC.cloneNode(true);
+            cloneA.style.flex = '1';
+            cloneC.style.flex = '1';
+            cloneA.style.border = '1px solid #e2e8f0';
+            cloneA.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            cloneC.style.border = '1px solid #e2e8f0';
+            cloneC.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            document.getElementById('snapshot-stats').appendChild(cloneA);
+            document.getElementById('snapshot-stats').appendChild(cloneC);
+        }
+        
+        html2canvas(snapshotDiv, {
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            scale: 2
+        }).then(finalCanvas => {
+            if (format === 'pdf') {
+                const imgData = finalCanvas.toDataURL('image/jpeg', 0.95);
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: [finalCanvas.width, finalCanvas.height]
+                });
+                pdf.addImage(imgData, 'JPEG', 0, 0, finalCanvas.width, finalCanvas.height);
+                pdf.save('Infografia_Crecimiento_2v_Medellin.pdf');
+            } else {
+                const link = document.createElement('a');
+                link.download = 'Infografia_Crecimiento_2v_Medellin.png';
+                link.href = finalCanvas.toDataURL('image/png');
+                link.click();
+            }
+            
+            document.body.removeChild(snapshotDiv);
+            originalBtn.innerHTML = originalText;
+            originalBtn.disabled = false;
+        }).catch(err => {
+            console.error("Error en snapshotDiv", err);
+            document.body.removeChild(snapshotDiv);
+            originalBtn.innerHTML = originalText;
+            originalBtn.disabled = false;
+            alert("Error generando infografía.");
+        });
+        
+    }).catch(err => {
+        console.error("Error capturando mapa", err);
+        originalBtn.innerHTML = originalText;
+        originalBtn.disabled = false;
+        alert("Error capturando el mapa.");
+    });
+    }, 500); // End of setTimeout
+}
+
+
+
+window.downloadCard2v = function() {
+    const card = document.getElementById('comparative-card-2v');
+    const btnContainer = document.getElementById('download-btn-container-2v');
+    
+    if (btnContainer) btnContainer.style.display = 'none';
+    
+    html2canvas(card, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff'
+    }).then(canvas => {
+        if (btnContainer) btnContainer.style.display = 'block';
+        const link = document.createElement('a');
+        link.download = 'Comparativo_1v_vs_2v.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }).catch(err => {
+        console.error("Error al generar la imagen", err);
+        if (btnContainer) btnContainer.style.display = 'block';
+        alert("Hubo un error al generar la imagen.");
+    });
+};
+
+
+window.zoomToBarrio = function(name) {
+    if (!barriosLayer) return;
+    let targetLayer = null;
+    barriosLayer.eachLayer(function(layer) {
+        if (layer.feature.properties.nombre === name) {
+            targetLayer = layer;
+        }
+    });
+    if (targetLayer) {
+        map.fitBounds(targetLayer.getBounds(), { padding: [50, 50], maxZoom: 15 });
+        targetLayer.openPopup();
+    }
 };
